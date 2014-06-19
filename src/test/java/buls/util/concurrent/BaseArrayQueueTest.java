@@ -1,5 +1,6 @@
-package util.concurrent;
+package buls.util.concurrent;
 
+import buls.util.concurrent.ConcurrentArrayQueue;
 import org.testng.Assert;
 import org.testng.annotations.Test;
 

@@ -1,4 +1,4 @@
-package util.concurrent;
+package buls.util.concurrent;
 
 import org.testng.annotations.Test;
 

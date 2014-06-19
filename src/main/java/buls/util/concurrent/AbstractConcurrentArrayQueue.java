@@ -1,4 +1,4 @@
-package util.concurrent;
+package buls.util.concurrent;
 
 import java.util.AbstractQueue;
 import java.util.Iterator;
