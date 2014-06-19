@@ -1,0 +1,14 @@
+apply plugin: 'java'
+
+test {
+    useTestNG()
+    testLogging.showStandardStreams = true
+}
+
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+    testCompile 'org.testng:testng:6.8.8'
+}
