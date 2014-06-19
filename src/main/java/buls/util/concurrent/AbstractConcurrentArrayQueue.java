@@ -101,6 +101,7 @@ public abstract class AbstractConcurrentArrayQueue<E> extends AbstractQueue<E> {
 
     protected abstract E getElement(long head);
 
+    @SuppressWarnings("unchecked")
     protected E get(int index) {
         return (E) elements.getAndSet(index, null);
     }
