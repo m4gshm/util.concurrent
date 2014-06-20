@@ -128,7 +128,6 @@ public class ConcurrentArrayQueue3<E> extends ConcurrentArrayQueue<E> {
 
             }
             while (true) {
-
                 E e;
                 if ((e = get(index)) != null) {
                     setNextHead(head, currentHead);

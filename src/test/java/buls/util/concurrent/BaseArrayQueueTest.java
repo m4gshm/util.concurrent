@@ -45,10 +45,20 @@ public abstract class BaseArrayQueueTest {
 
     @Test
     public void testInsertAnGetsInConcurrentMode3() {
-        int inserts = 30;
+        int inserts = 50;
         int attemptsPerInsert = 1000;
         int capacity = inserts * attemptsPerInsert;
-        int getters = 40;
+        int getters = 50;
+
+        testQueueCuncurrently(capacity, inserts, attemptsPerInsert, getters);
+    }
+
+    @Test
+    public void testInsertAnGetsInConcurrentMode4() {
+        int inserts = 50;
+        int attemptsPerInsert = 100;
+        int capacity = 100;
+        int getters = 5;
 
         testQueueCuncurrently(capacity, inserts, attemptsPerInsert, getters);
     }
@@ -89,7 +99,7 @@ public abstract class BaseArrayQueueTest {
 
         startTrigger.countDown();
 
-        endingWait(endTrigger, 100);
+        endingWait(endTrigger, 20);
 
         try {
             Assert.assertEquals(sourceValues.size(), results.size());
@@ -99,7 +109,7 @@ public abstract class BaseArrayQueueTest {
         } finally {
 
             System.out.println("queue size " + queue.size());
-//            System.out.println("queue: " + queue);
+            System.out.println("queue: " + queue);
             System.out.println("offer fails " + offerFailCounter.get());
             System.out.println("poll fails " + pollFailCounter.get());
 

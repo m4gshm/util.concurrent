@@ -90,20 +90,20 @@ public abstract class AbstractConcurrentArrayQueue<E> extends AbstractQueue<E> {
     }
 
     /**
-     *
-     * @param oldTail счетчик хвоста скоторымпоток вошел в режим вставки
-     * @param currentTail
+     * @param oldTail     счетчик хвоста скоторымпоток вошел в режим вставки
+     * @param insertedTail
      * @return
      */
-    protected boolean setNextTail(long oldTail, long currentTail) {
-        return tailSequence.compareAndSet(oldTail, currentTail + 1);
+    protected boolean setNextTail(long oldTail, long insertedTail) {
+        return nextSequence(tailSequence, oldTail, insertedTail + 1);
     }
 
     protected abstract E getElement(long head);
 
     @SuppressWarnings("unchecked")
     protected E get(int index) {
-        return (E) elements.getAndSet(index, null);
+        E e = (E) elements.getAndSet(index, null);
+        return e;
     }
 
     @Override
@@ -140,6 +140,19 @@ public abstract class AbstractConcurrentArrayQueue<E> extends AbstractQueue<E> {
     }
 
     protected boolean setNextHead(long oldHead, long currentHead) {
-        return headSequence.compareAndSet(oldHead, currentHead + 1);
+        return nextSequence(headSequence, oldHead, currentHead + 1);
+    }
+
+    private boolean nextSequence(AtomicLong sequence, long oldValue, long newValue) {
+        boolean set = sequence.compareAndSet(oldValue, newValue);
+        while (!set) {
+            long currentValue = sequence.get();
+            if (currentValue < newValue) {
+                set = sequence.compareAndSet(currentValue, newValue);
+            } else {
+                break;
+            }
+        }
+        return set;
     }
 }

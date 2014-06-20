@@ -10,10 +10,15 @@ public class ConcurrentArrayQueue<E> extends AbstractConcurrentArrayQueue<E> {
 
     protected final AtomicLong successSet = new AtomicLong();
     protected final AtomicLong failSet = new AtomicLong();
+
     protected final AtomicLong failLockedSet = new AtomicLong();
 
     protected final AtomicLong successGet = new AtomicLong();
     protected final AtomicLong failGet = new AtomicLong();
+
+
+    protected final AtomicLong failNextTail = new AtomicLong();
+    protected final AtomicLong failNextHead = new AtomicLong();
 
     protected final boolean writeStatistic;
 
@@ -24,9 +29,12 @@ public class ConcurrentArrayQueue<E> extends AbstractConcurrentArrayQueue<E> {
 
     @Override
     protected boolean setElement(final E e, final long tail) {
+        if (e == null) {
+            throw new NullPointerException("e cannot be null");
+        }
         long currentTail = tail;
         int capacity = capacity();
-        int index = (int) (currentTail % capacity);
+        int index = calcIndex(currentTail);
 
         while (true) {
             if (set(e, index)) {
@@ -52,7 +60,7 @@ public class ConcurrentArrayQueue<E> extends AbstractConcurrentArrayQueue<E> {
         //throw new IllegalStateException("setElement");
     }
 
-    private void checkHeadTailConsistency() {
+    protected void checkHeadTailConsistency() {
         long h = headSequence.get();
         long t = tailSequence.get();
         assert h <= t;
@@ -81,13 +89,17 @@ public class ConcurrentArrayQueue<E> extends AbstractConcurrentArrayQueue<E> {
     @Override
     protected E getElement(final long head) {
         long currentHead = head;
-        int index = (int) (currentHead % capacity());
+        int index = calcIndex(currentHead);
 
         while (true) {
             E e;
             if ((e = get(index)) != null) {
 
-                setNextHead(head, currentHead);
+                boolean badSetHead = setNextHead(head, currentHead);
+                if(!badSetHead) {
+                    //проверяем диапазон
+                    long hs = headSequence.get();
+                }
 
                 checkHeadTailConsistency();
 
@@ -143,6 +155,24 @@ public class ConcurrentArrayQueue<E> extends AbstractConcurrentArrayQueue<E> {
         return head;
     }
 
+    @Override
+    protected boolean setNextTail(long oldTail, long insertedTail) {
+        boolean result = super.setNextTail(oldTail, insertedTail);
+        if(!result) {
+            failNextTail.incrementAndGet();
+        }
+        return result;
+    }
+
+    @Override
+    protected boolean setNextHead(long oldHead, long currentHead) {
+        boolean result = super.setNextHead(oldHead, currentHead);
+        if(!result) {
+            failNextHead.incrementAndGet();
+        }
+        return result;
+    }
+
     public void printStatistic(PrintStream printStream) {
         if (writeStatistic) {
             printStream.println("success sets " + successSet.get());
@@ -150,6 +180,9 @@ public class ConcurrentArrayQueue<E> extends AbstractConcurrentArrayQueue<E> {
             printStream.println("fail locked sets " + failLockedSet.get());
             printStream.println("success gets " + successGet.get());
             printStream.println("fail gets " + failGet.get());
+
+            printStream.println("fail next tail " + failNextTail.get());
+            printStream.println("fail next head " + failNextHead.get());
         }
     }
 
