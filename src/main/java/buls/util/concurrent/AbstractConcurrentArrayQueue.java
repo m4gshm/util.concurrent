@@ -97,8 +97,14 @@ public abstract class AbstractConcurrentArrayQueue<E> extends AbstractQueue<E> {
             if (currentValue < newValue) {
                 set = sequence.compareAndSet(currentValue, newValue);
             } else if (currentValue == newValue) {
+                //todo: просчитать двойную вставку с обгоном хвостом головы
+                long head = getHead();
+                if (head) {
+                    
+                }
                 return false;
             } else {
+                //todo: хвост может обогнать и в этом случае
                 assert currentValue > newValue : oldTail + " " + currentValue + " " + newValue;
                 return true;
             }
