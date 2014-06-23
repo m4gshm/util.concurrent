@@ -11,8 +11,8 @@ import java.util.concurrent.locks.ReentrantLock;
  */
 public class ConcurrentArrayQueue3<E> extends ConcurrentArrayQueue<E> {
 
-    public static final int SET_FAILS = 100;
-    public static final int GET_FAILS = 100;
+    public static final int SET_FAILS = 20;
+    public static final int GET_FAILS = 20;
 
     protected final AtomicLong getLocks = new AtomicLong();
     protected final AtomicLong getLockRequests = new AtomicLong();
@@ -45,8 +45,8 @@ public class ConcurrentArrayQueue3<E> extends ConcurrentArrayQueue<E> {
                 startSetLock();
                 hasLock = true;
 
-                currentTail = computeCurrentTail(currentTail);
-                if (checkTailOwerflow(currentTail, capacity)) {
+                currentTail = computeTail(currentTail);
+                if (checkTailOverflow(currentTail, capacity)) {
                     return false;
                 }
                 index = calcIndex(currentTail);
@@ -81,8 +81,8 @@ public class ConcurrentArrayQueue3<E> extends ConcurrentArrayQueue<E> {
                         }
                     }
 
-                    currentTail = computeCurrentTail(currentTail);
-                    if (checkTailOwerflow(currentTail, capacity)) {
+                    currentTail = computeTail(currentTail);
+                    if (checkTailOverflow(currentTail, capacity)) {
                         return false;
                     }
                     index = calcIndex(currentTail);
@@ -120,8 +120,8 @@ public class ConcurrentArrayQueue3<E> extends ConcurrentArrayQueue<E> {
                 statGetLock();
                 hasLock = true;
 
-                currentHead = getNewHead(currentHead);
-                if (checkHeadOwerflow(currentHead)) {
+                currentHead = computeHead(currentHead);
+                if (checkHeadOverflow(currentHead)) {
                     return null;
                 }
                 index = calcIndex(currentHead);
@@ -152,8 +152,8 @@ public class ConcurrentArrayQueue3<E> extends ConcurrentArrayQueue<E> {
                         }
                     }
 
-                    currentHead = getNewHead(currentHead);
-                    if (checkHeadOwerflow(currentHead)) {
+                    currentHead = computeHead(currentHead);
+                    if (checkHeadOverflow(currentHead)) {
                         return null;
                     }
                     index = calcIndex(currentHead);

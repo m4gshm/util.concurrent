@@ -14,12 +14,12 @@ public abstract class AbstractConcurrentArrayQueue<E> extends AbstractQueue<E> {
     protected final AtomicLong headSequence = new AtomicLong(0);
 
     public AbstractConcurrentArrayQueue(int capacity) {
-        this.elements = new AtomicReferenceArray<Object>(capacity);
+        this.elements = new AtomicReferenceArray<>(capacity);
     }
 
     @Override
     public String toString() {
-        return elements.toString();
+        return "h: " + headSequence + ", t:" + tailSequence + " " + elements.toString();
     }
 
     @Override
@@ -59,13 +59,9 @@ public abstract class AbstractConcurrentArrayQueue<E> extends AbstractQueue<E> {
         boolean result;
         long amount = tail - head;
         if (amount <= capacity) {
-            //если есть место для вставки, just do it
-
             result = setElement(e, tail);
         } else {
-            //если предполагаемое кол-во элементов больше размера очереди, то нескольк потоков пытаются вставить,
-            //нас обогнали и выдавили за пределы очереди
-            //todo: по идее, тут можно быть оптимистом и проверить счетчик головы, вдруг она уехала вперед, освободив место
+
             result = false;
         }
 
@@ -75,10 +71,7 @@ public abstract class AbstractConcurrentArrayQueue<E> extends AbstractQueue<E> {
     protected abstract boolean setElement(E e, long tail);
 
     protected boolean set(E e, int index) {
-        assert e != null;
-        boolean set = elements.compareAndSet(index, null, e);
-        return set;
-
+        return elements.compareAndSet(index, null, e);
     }
 
     protected long getTail() {
@@ -90,20 +83,41 @@ public abstract class AbstractConcurrentArrayQueue<E> extends AbstractQueue<E> {
     }
 
     /**
-     * @param oldTail     счетчик хвоста скоторымпоток вошел в режим вставки
+     * @param oldTail      счетчик хвоста с которым поток вошел в режим вставки
      * @param insertedTail
      * @return
      */
     protected boolean setNextTail(long oldTail, long insertedTail) {
-        return nextSequence(tailSequence, oldTail, insertedTail + 1);
+        long newValue = insertedTail + 1;
+        assert oldTail < newValue;
+        AtomicLong sequence = tailSequence;
+        boolean set = sequence.compareAndSet(oldTail, newValue);
+        while (!set) {
+            long currentValue = sequence.get();
+            if (currentValue < newValue) {
+                set = sequence.compareAndSet(currentValue, newValue);
+            } else if (currentValue == newValue) {
+                return false;
+            } else {
+                assert currentValue > newValue : oldTail + " " + currentValue + " " + newValue;
+                return true;
+            }
+        }
+        return set;
     }
 
     protected abstract E getElement(long head);
 
     @SuppressWarnings("unchecked")
     protected E get(int index) {
-        E e = (E) elements.getAndSet(index, null);
-        return e;
+        E e = (E) elements.get(index);
+        if (e != null) {
+            boolean set = elements.compareAndSet(index, e, null);
+            if (set) {
+                return e;
+            }
+        }
+        return null;
     }
 
     @Override
@@ -113,18 +127,14 @@ public abstract class AbstractConcurrentArrayQueue<E> extends AbstractQueue<E> {
             return null;
         }
 
-        long tail = this.tailSequence.get();
-        long head = this.headSequence.get();
+        long tail = tailSequence.get();
+        long head = headSequence.get();
 
         E result;
 
         if (head < tail) {
-            //если новая голова все еще меньше хвоста, значит мы все еще в очереди и пробуем взять элемент
             result = getElement(head);
-
         } else {
-            //если голова перевалила за хвост, то значит несколько потоков пытаются взть из головы,
-            // нас обогонали и выдавили за пределы очереди
             result = null;
         }
         return result;
@@ -139,17 +149,35 @@ public abstract class AbstractConcurrentArrayQueue<E> extends AbstractQueue<E> {
         return headSequence.get();
     }
 
-    protected boolean setNextHead(long oldHead, long currentHead) {
-        return nextSequence(headSequence, oldHead, currentHead + 1);
-    }
-
-    private boolean nextSequence(AtomicLong sequence, long oldValue, long newValue) {
-        boolean set = sequence.compareAndSet(oldValue, newValue);
+    protected boolean setNextHead(long oldHead, long insertedHead) {
+        if (insertedHead < oldHead) {
+            throw new RuntimeException("insertedHead < oldHead " + insertedHead + " < " + oldHead);
+        }
+        long newValue = insertedHead + 1;
+        assert oldHead < newValue;
+        AtomicLong sequence = headSequence;
+        boolean set = sequence.compareAndSet(oldHead, newValue);
         while (!set) {
             long currentValue = sequence.get();
             if (currentValue < newValue) {
                 set = sequence.compareAndSet(currentValue, newValue);
+            } else if (currentValue == newValue) {
+                //двойное взятие
+                //head = 0, tail = 5, capacity = 5
+                //t1    pool()          index = head % capacity = 0
+                //t1    pool()          index = head % capacity = 0
+                //t1    getElement(0)   true
+                //t1    setNextHead 1   true
+                //t3    offer()         index = tail % capacity = 0
+                //t3    setElement(0)   true
+                //t2    getElement(0)   true
+                //t2    setNextHead 1   false
+
+                //t1 и t2 успешно взяли объект из одной и той же ячейки, t1 первым выставил следующий индекс, t2 опоздал
+
+                break;
             } else {
+                assert currentValue > newValue : oldHead + " " + currentValue + " " + newValue;
                 break;
             }
         }

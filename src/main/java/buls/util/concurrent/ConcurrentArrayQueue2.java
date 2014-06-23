@@ -19,9 +19,7 @@ public class ConcurrentArrayQueue2<E> extends ConcurrentArrayQueue<E> {
 
     @Override
     protected boolean setElement(final E e, final long tail) {
-        if (e == null) {
-            throw new NullPointerException("e cannot be null");
-        }
+
         long currentTail = tail;
         int capacity = capacity();
         int index = calcIndex(currentTail);
@@ -46,8 +44,8 @@ public class ConcurrentArrayQueue2<E> extends ConcurrentArrayQueue<E> {
             } else {
                 failSet();
 
-                currentTail = computeCurrentTail(currentTail);
-                if (checkTailOwerflow(currentTail, capacity)) {
+                currentTail = computeTail(currentTail);
+                if (checkTailOverflow(currentTail, capacity)) {
                     return false;
                 }
                 index = calcIndex(currentTail);
@@ -100,8 +98,8 @@ public class ConcurrentArrayQueue2<E> extends ConcurrentArrayQueue<E> {
             } else {
                 failGet();
 
-                currentHead = getNewHead(currentHead);
-                if (checkHeadOwerflow(currentHead)) {
+                currentHead = computeHead(currentHead);
+                if (checkHeadOverflow(currentHead)) {
                     return null;
                 }
                 index = calcIndex(currentHead);

@@ -1,4 +1,16 @@
+buildscript {
+    repositories {
+        jcenter()
+        maven {
+            url 'http://typesafe.artifactoryonline.com/typesafe/repo/'
+        }
+    }
+    dependencies {
+        classpath 'com.jimdo.gradle:gradle-apt-plugin:0.5-SNAPSHOT@jar'
+    }
+}
 apply plugin: 'java'
+apply plugin: 'apt'
 
 test {
     useTestNG()
@@ -10,5 +22,7 @@ repositories {
 }
 
 dependencies {
+    apt 'org.openjdk.jmh:jmh-generator-annprocess:0.9'
+    compile 'org.openjdk.jmh:jmh-core:0.9'
     testCompile 'org.testng:testng:6.8.8'
 }

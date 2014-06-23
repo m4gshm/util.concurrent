@@ -1,9 +1,11 @@
 package buls.util.concurrent;
 
-import buls.util.concurrent.ConcurrentArrayQueue;
 import org.testng.Assert;
 import org.testng.annotations.Test;
 
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+import java.io.PrintStream;
 import java.util.*;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
@@ -14,13 +16,15 @@ import java.util.concurrent.atomic.AtomicLong;
  */
 public abstract class BaseArrayQueueTest {
 
+    public static final boolean WRITE_STATISTIC = true;
+
     @Test
     public void testInsertAnGetsInConcurrentMode0() {
         int inserts = 1;
         int attemptsPerInsert = 100;
         int capacity = 1;
         int getters = 1;
-        testQueueCuncurrently(capacity, inserts, attemptsPerInsert, getters);
+        testQueueConcurrently(capacity, inserts, attemptsPerInsert, getters, "testInsertAnGetsInConcurrentMode0");
     }
 
     @Test
@@ -30,7 +34,7 @@ public abstract class BaseArrayQueueTest {
         int attemptsPerInsert = 2;
         int getters = 2;
 
-        testQueueCuncurrently(capacity, inserts, attemptsPerInsert, getters);
+        testQueueConcurrently(capacity, inserts, attemptsPerInsert, getters, "testInsertAnGetsInConcurrentMode1");
     }
 
     @Test
@@ -40,7 +44,7 @@ public abstract class BaseArrayQueueTest {
         int capacity = inserts * attemptsPerInsert;
         int getters = 5;
 
-        testQueueCuncurrently(capacity, inserts, attemptsPerInsert, getters);
+        testQueueConcurrently(capacity, inserts, attemptsPerInsert, getters, "testInsertAnGetsInConcurrentMode2");
     }
 
     @Test
@@ -48,9 +52,9 @@ public abstract class BaseArrayQueueTest {
         int inserts = 50;
         int attemptsPerInsert = 1000;
         int capacity = inserts * attemptsPerInsert;
-        int getters = 50;
+        int getters = 100;
 
-        testQueueCuncurrently(capacity, inserts, attemptsPerInsert, getters);
+        testQueueConcurrently(capacity, inserts, attemptsPerInsert, getters, "testInsertAnGetsInConcurrentMode3");
     }
 
     @Test
@@ -60,18 +64,21 @@ public abstract class BaseArrayQueueTest {
         int capacity = 100;
         int getters = 5;
 
-        testQueueCuncurrently(capacity, inserts, attemptsPerInsert, getters);
+        testQueueConcurrently(capacity, inserts, attemptsPerInsert, getters, "testInsertAnGetsInConcurrentMode4");
     }
 
 
-    protected void testQueueCuncurrently(int capacity, int inserts, int attemptsPerInsert, int getters) {
+    protected void testQueueConcurrently(int capacity, int inserts, int attemptsPerInsert, int getters, String testName) {
+        ByteArrayOutputStream out = new ByteArrayOutputStream();
+        PrintStream printStream = System.out;//new PrintStream(out);
+        printStream.println("START " + testName);
         int attemptsPerGet = inserts * attemptsPerInsert / getters;
         if (attemptsPerGet == 0) {
             attemptsPerGet = 1;
         }
         Assert.assertTrue(attemptsPerGet * getters >= inserts * attemptsPerInsert);
 
-        final ConcurrentArrayQueue<String> queue = createQueue(capacity, true);
+        final ConcurrentArrayQueue<String> queue = createQueue(capacity, WRITE_STATISTIC);
 
         final CountDownLatch endTrigger = new CountDownLatch(inserts + getters);
         final CountDownLatch startTrigger = new CountDownLatch(1);
@@ -81,41 +88,60 @@ public abstract class BaseArrayQueueTest {
 
         List<String> sourceValues = new ArrayList<>(inserts);
 
-
+        List<Thread> threads = new ArrayList<>(inserts);
         for (int i = 0; i < inserts; ++i) {
             String name = "insert-thread-" + i;
             for (int attempt = 0; attempt < attemptsPerInsert; ++attempt) {
                 sourceValues.add(name + "-" + attempt);
             }
             Runnable runner = createInserter(queue, attemptsPerInsert, startTrigger, endTrigger, offerFailCounter);
-            new Thread(runner, name).start();
+            Thread thread = new Thread(runner, name);
+            threads.add(thread);
+            thread.start();
         }
 
         List<String> results = Collections.synchronizedList(new ArrayList<String>(inserts));
         for (int i = 0; i < getters; ++i) {
             Runnable runner = createGetter(queue, attemptsPerGet, results, startTrigger, endTrigger, pollFailCounter);
-            new Thread(runner, "get-thread-" + i).start();
+            Thread thread = new Thread(runner, "get-thread-" + i);
+            threads.add(thread);
+            thread.start();
         }
 
         startTrigger.countDown();
 
-        endingWait(endTrigger, 20);
+        //endingWait(endTrigger, 10);
 
+        for (Thread t : threads) {
+            try {
+                t.join();
+            } catch (InterruptedException e) {
+                throw new RuntimeException(e);
+            }
+        }
+
+        printStream.println("queue size " + queue.size());
+        printStream.println("queue: " + queue);
+        printStream.println("offer fails " + offerFailCounter.get());
+        printStream.println("poll fails " + pollFailCounter.get());
+
+        printStream.println(queue.getClass().getName() + " statistic:");
+
+        queue.printStatistic(printStream);
         try {
             Assert.assertEquals(sourceValues.size(), results.size());
             Collections.sort(sourceValues);
             Collections.sort(results);
+            //System.printStream.println(sourceValues);
+            //System.printStream.println(results);
             Assert.assertEquals(sourceValues, results);
         } finally {
-
-            System.out.println("queue size " + queue.size());
-            System.out.println("queue: " + queue);
-            System.out.println("offer fails " + offerFailCounter.get());
-            System.out.println("poll fails " + pollFailCounter.get());
-
-            System.out.println(queue.getClass().getName() + " statistic:");
-
-            queue.printStatistic(System.out);
+            printStream.println("END " + testName);
+            try {
+                System.out.write(out.toByteArray());
+            } catch (IOException e) {
+                throw new RuntimeException(e);
+            }
         }
     }
 
@@ -189,7 +215,7 @@ public abstract class BaseArrayQueueTest {
     @Test
     public void testOne() {
         int capacity = 2;
-        Queue<String> queue = createQueue(capacity, false);
+        Queue<String> queue = createQueue(capacity, WRITE_STATISTIC);
 
         //заполнили
         Assert.assertTrue(queue.offer("Раз"));
