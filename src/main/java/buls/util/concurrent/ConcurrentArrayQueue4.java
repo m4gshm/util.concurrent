@@ -19,7 +19,7 @@ public class ConcurrentArrayQueue4<E> extends ConcurrentArrayQueue<E> {
     }
 
     @Override
-    protected boolean setElement(final E e, final long tail) {
+    protected boolean setElement(final E e, final long tail, long head) {
         boolean locked;
         int iterations = 0;
         while (!(locked = setLock.tryLock())) {
@@ -59,7 +59,7 @@ public class ConcurrentArrayQueue4<E> extends ConcurrentArrayQueue<E> {
     }
 
     @Override
-    protected E getElement(final long head) {
+    protected E getElement(final long head, long tail) {
 
         boolean locked;
         int iterations = 0;

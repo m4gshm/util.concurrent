@@ -18,7 +18,7 @@ public class ConcurrentArrayQueue2<E> extends ConcurrentArrayQueue<E> {
     }
 
     @Override
-    protected boolean setElement(final E e, final long tail) {
+    protected boolean setElement(final E e, final long tail, long head) {
 
         long currentTail = tail;
         int capacity = capacity();
@@ -77,7 +77,7 @@ public class ConcurrentArrayQueue2<E> extends ConcurrentArrayQueue<E> {
         return set;
     }
 
-    protected E getElement(final long head) {
+    protected E getElement(final long head, long tail) {
         long currentHead = head;
         int index = calcIndex(currentHead);
 

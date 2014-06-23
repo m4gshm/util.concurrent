@@ -167,11 +167,16 @@ public abstract class BaseArrayQueueTest {
 
                 try {
                     int attempts = attemptsPerGet;
+                    long fails = 0;
                     while (attempts > 0) {
                         String poll = queue.poll();
                         if (poll == null) {
                             pollFailCounter.incrementAndGet();
                             Thread.yield();
+                            fails++;
+                            if (fails > 100_000_000) {
+                                throw new IllegalStateException(fails + " fails");
+                            }
                         } else {
                             results.add(poll);
                             --attempts;
@@ -194,12 +199,17 @@ public abstract class BaseArrayQueueTest {
                 }
                 try {
                     int attempts = attemptsPerInsert;
+                    long fails = 0;
                     while (attempts > 0) {
                         String name = Thread.currentThread().getName() + "-" + (attempts - 1);
                         boolean offer = queue.offer(name);
                         if (!offer) {
                             offerFailCounter.incrementAndGet();
                             Thread.yield();
+                            fails++;
+                            if (fails > 100_000_000) {
+                                throw new IllegalStateException(fails + " fails");
+                            }
                         } else {
                             --attempts;
                         }

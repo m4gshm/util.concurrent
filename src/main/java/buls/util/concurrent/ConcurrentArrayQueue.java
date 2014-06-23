@@ -28,18 +28,16 @@ public class ConcurrentArrayQueue<E> extends AbstractConcurrentArrayQueue<E> {
     }
 
     @Override
-    protected boolean setElement(final E e, final long tail) {
+    protected boolean setElement(final E e, final long tail, long head) {
         if (e == null) {
             throw new NullPointerException("e cannot be null");
         }
         long currentTail = tail;
         int capacity = capacity();
-        int index = calcIndex(currentTail);
 
+        long attempt = 0;
         while (true) {
-            if (set(e, index)) {
-
-                setNextTail(tail, currentTail);
+            if (set(e, tail, currentTail, head, ++attempt)) {
 
                 checkHeadTailConsistency();
 
@@ -54,7 +52,6 @@ public class ConcurrentArrayQueue<E> extends AbstractConcurrentArrayQueue<E> {
                 if (checkTailOverflow(currentTail, capacity)) {
                     return false;
                 }
-                index = calcIndex(currentTail);
             }
         }
         //throw new IllegalStateException("setElement");
@@ -77,30 +74,24 @@ public class ConcurrentArrayQueue<E> extends AbstractConcurrentArrayQueue<E> {
     }
 
     protected long computeTail(long tail) {
-        long currentTail = getTail();
-        if (tail < currentTail) {
-            tail = currentTail;
-        } else {
+        //long currentTail = getTail();
+        //if (tail < currentTail) {
+        //    tail = currentTail;
+        //} else {
             tail++;
-        }
+        //}
         return tail;
     }
 
     @Override
-    protected E getElement(final long head) {
+    protected E getElement(final long head, long tail) {
         long currentHead = head;
-        int index = calcIndex(currentHead);
-
+        long attempts = 0;
         while (true) {
             E e;
-            if ((e = get(index)) != null) {
-
-                setNextHead(head, currentHead);
-
+            if ((e = get(head, currentHead, tail, ++attempts)) != null) {
                 checkHeadTailConsistency();
-
                 successGet();
-
                 return e;
             } else {
                 failGet();
@@ -109,7 +100,6 @@ public class ConcurrentArrayQueue<E> extends AbstractConcurrentArrayQueue<E> {
                 if (checkHeadOverflow(currentHead)) {
                     return null;
                 }
-                index = calcIndex(currentHead);
             }
         }
         //throw new IllegalStateException("getElement");
@@ -145,12 +135,12 @@ public class ConcurrentArrayQueue<E> extends AbstractConcurrentArrayQueue<E> {
     }
 
     protected long computeHead(long head) {
-        long currentHead = getHead();
-        if (head < currentHead) {
-            head = currentHead;
-        } else {
+//        long currentHead = getHead();
+//        if (head < currentHead) {
+//            head = currentHead;
+//        } else {
             head++;
-        }
+//        }
         return head;
     }
 
