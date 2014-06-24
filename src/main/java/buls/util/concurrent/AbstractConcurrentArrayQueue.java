@@ -284,7 +284,8 @@ public abstract class AbstractConcurrentArrayQueue<E> extends AbstractQueue<E> {
                     try {
                         E e = (E) elements.get(index);
                         if (e == null) {
-                            return null;
+                            throw new IllegalStateException("NULL");
+                            //return null;
                         }
                         boolean set = elements.compareAndSet(index, e, null);
                         if (set) {

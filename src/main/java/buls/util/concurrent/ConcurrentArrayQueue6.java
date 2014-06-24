@@ -3,9 +3,9 @@ package buls.util.concurrent;
 /**
  * Created by Bulgakov Alex on 31.05.2014.
  */
-public class ConcurrentArrayQueue_tmp<E> extends ConcurrentArrayQueue<E> {
+public class ConcurrentArrayQueue6<E> extends ConcurrentArrayQueue<E> {
 
-    public ConcurrentArrayQueue_tmp(int capacity, boolean writeStatistic) {
+    public ConcurrentArrayQueue6(int capacity, boolean writeStatistic) {
         super(capacity, writeStatistic);
     }
 
