@@ -128,6 +128,7 @@ public abstract class AbstractConcurrentArrayQueue<E> extends AbstractQueue<E> {
                     continue;
                     //return false;
                 } else {
+                    //напоролись на запоздавшую вставку
                     //assert l < level;
                     Thread thread = null;//threads.get(index);
                     throw new RuntimeException("bad set ind " + index + " l " + l + ", level " + level + ", h " + getHead()
@@ -274,15 +275,20 @@ public abstract class AbstractConcurrentArrayQueue<E> extends AbstractQueue<E> {
     @SuppressWarnings("unchecked")
     protected final E get(long oldHead, long currentHead, long tail, long attempt) {
         int index = calcIndex(currentHead);
-        E e = (E) elements.get(index);
-        if (e != null) {
+
             long level = currentHead / capacity();
             while (true) {
                 //long l0 = levels.get(index);
                 if (levels.compareAndSet(index, level, -2)) {
+                    boolean success = false;
                     try {
+                        E e = (E) elements.get(index);
+                        if (e == null) {
+                            return null;
+                        }
                         boolean set = elements.compareAndSet(index, e, null);
                         if (set) {
+                            success = true;
                             //threads.lazySet(index, Thread.currentThread());
                             setNextHead(oldHead, currentHead);
                             return e;
@@ -290,7 +296,7 @@ public abstract class AbstractConcurrentArrayQueue<E> extends AbstractQueue<E> {
                             throw new RuntimeException();
                         }
                     } finally {
-                        levels.compareAndSet(index, -2, level + 1);
+                        levels.compareAndSet(index, -2, level + (success ? 1 : 0));
                     }
                 } else {
 //                return null;
@@ -314,8 +320,7 @@ public abstract class AbstractConcurrentArrayQueue<E> extends AbstractQueue<E> {
                     }
                 }
             }
-        }
-        return null;
+        //return null;
     }
 
     @Override
