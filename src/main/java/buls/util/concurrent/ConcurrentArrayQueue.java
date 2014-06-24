@@ -1,5 +1,7 @@
 package buls.util.concurrent;
 
+import sun.misc.Contended;
+
 import java.io.PrintStream;
 import java.util.concurrent.atomic.AtomicLong;
 
@@ -8,16 +10,20 @@ import java.util.concurrent.atomic.AtomicLong;
  */
 public class ConcurrentArrayQueue<E> extends AbstractConcurrentArrayQueue<E> {
 
+    @Contended
     protected final AtomicLong successSet = new AtomicLong();
+    @Contended
     protected final AtomicLong failSet = new AtomicLong();
-
+    @Contended
     protected final AtomicLong failLockedSet = new AtomicLong();
-
+    @Contended
     protected final AtomicLong successGet = new AtomicLong();
+    @Contended
     protected final AtomicLong failGet = new AtomicLong();
 
-
+    @Contended
     protected final AtomicLong failNextTail = new AtomicLong();
+    @Contended
     protected final AtomicLong failNextHead = new AtomicLong();
 
     protected final boolean writeStatistic;
@@ -57,17 +63,13 @@ public class ConcurrentArrayQueue<E> extends AbstractConcurrentArrayQueue<E> {
         //throw new IllegalStateException("setElement");
     }
 
-    protected void checkHeadTailConsistency() {
+    protected final void checkHeadTailConsistency() {
         long h = headSequence.get();
         long t = tailSequence.get();
         assert h <= t;
     }
 
-    protected int calcIndex(long counter) {
-        return (int) (counter % capacity());
-    }
-
-    protected boolean checkTailOverflow(long tail, int capacity) {
+    protected final boolean checkTailOverflow(long tail, int capacity) {
         long head = getHead();
         long amount = tail - head;
         return amount >= capacity;
@@ -105,27 +107,27 @@ public class ConcurrentArrayQueue<E> extends AbstractConcurrentArrayQueue<E> {
         //throw new IllegalStateException("getElement");
     }
 
-    protected void failGet() {
+    protected final void failGet() {
         if (writeStatistic) failGet.incrementAndGet();
     }
 
-    protected void successGet() {
+    protected final void successGet() {
         if (writeStatistic) successGet.incrementAndGet();
     }
 
 
-    protected void failSet() {
+    protected final void failSet() {
         if (writeStatistic) failSet.incrementAndGet();
     }
 
-    protected void successSet() {
+    protected final void successSet() {
         if (writeStatistic) {
             long s = successSet.incrementAndGet();
             long t = getTail();
         }
     }
 
-    protected boolean checkHeadOverflow(long newHead) {
+    protected final boolean checkHeadOverflow(long newHead) {
         long tail = getTail();
         if (newHead >= tail) {
             assert newHead == tail;
@@ -146,7 +148,7 @@ public class ConcurrentArrayQueue<E> extends AbstractConcurrentArrayQueue<E> {
 
 
     @Override
-    protected boolean setNextHead(long oldHead, long currentHead) {
+    protected final boolean setNextHead(long oldHead, long currentHead) {
         boolean result = super.setNextHead(oldHead, currentHead);
         if (!result) {
             failNextHead.incrementAndGet();

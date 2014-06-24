@@ -1,6 +1,7 @@
 package buls.util.concurrent;
 
-import java.io.Serializable;
+import sun.misc.Contended;
+
 import java.util.AbstractQueue;
 import java.util.Iterator;
 import java.util.concurrent.atomic.AtomicLong;
@@ -11,21 +12,26 @@ import java.util.concurrent.atomic.AtomicReferenceArray;
  * Created by Bulgakov Alex on 14.06.2014.
  */
 public abstract class AbstractConcurrentArrayQueue<E> extends AbstractQueue<E> {
+    @Contended
     protected final AtomicReferenceArray<Object> elements;
+    @Contended
     protected final AtomicLongArray levels;
-    protected final AtomicReferenceArray<Thread> threads;
+    //@Contended
+    //protected final AtomicReferenceArray<Thread> threads;
+    @Contended
     protected final AtomicLong tailSequence = new AtomicLong(0);
+    @Contended
     protected final AtomicLong headSequence = new AtomicLong(0);
 
     public AbstractConcurrentArrayQueue(int capacity) {
         this.elements = new AtomicReferenceArray<>(capacity);
         levels = new AtomicLongArray(capacity);
-        threads = new AtomicReferenceArray<>(capacity);
+        //threads = new AtomicReferenceArray<>(capacity);
     }
 
     @Override
     public String toString() {
-        return "h: " + headSequence + ", t:" + tailSequence + " " + elements.toString();
+        return "h: " + headSequence + ", t:" + tailSequence + ", c:" + capacity() + " " + elements.toString();
     }
 
     @Override
@@ -33,23 +39,23 @@ public abstract class AbstractConcurrentArrayQueue<E> extends AbstractQueue<E> {
         throw new UnsupportedOperationException();
     }
 
-    protected boolean isInterrupted() {
+    protected final boolean isInterrupted() {
         return Thread.interrupted();
     }
 
     @Override
-    public int size() {
+    public final int size() {
         long tail = tailSequence.get();
         long head = headSequence.get();
         return (int) (tail - head);
     }
 
-    public int capacity() {
+    public final int capacity() {
         return elements.length();
     }
 
     @Override
-    public boolean offer(E e) {
+    public final boolean offer(E e) {
         if (e == null) {
             throw new IllegalArgumentException("element cannot be null");
         }
@@ -77,30 +83,29 @@ public abstract class AbstractConcurrentArrayQueue<E> extends AbstractQueue<E> {
     protected abstract boolean setElement(E e, long tail, long head);
 
     @Deprecated
-    protected boolean set(E e, int index) {
+    protected final boolean set(E e, int index) {
         return elements.compareAndSet(index, null, e);
     }
 
-    protected boolean set(E e, long tail, long currentTail, long head, long attempt) {
+    protected final boolean set(E e, long tail, long currentTail, long head, long attempt) {
         int index = calcIndex(currentTail);
         long level = currentTail / capacity();
 
         while (true) {
-            long l0 = levels.get(index);
+            //long l0 = levels.get(index);
             if (levels.compareAndSet(index, level, -1)) {
                 try {
 
                     boolean set = elements.compareAndSet(index, null, e);
 
                     if (set) {
-                        threads.set(index, Thread.currentThread());
+                        //threads.lazySet(index, Thread.currentThread());
                         setNextTail(tail, currentTail);
                     } else {
                         return false;
                     }
                     return set;
                 } finally {
-                    //threads.compareAndSet(index, Thread.currentThread(), null);
                     levels.compareAndSet(index, -1, level);
                 }
 
@@ -112,33 +117,32 @@ public abstract class AbstractConcurrentArrayQueue<E> extends AbstractQueue<E> {
                     return false;
                 } else if (l == -2) {
                     //производится взятие
-                    return false;
+                    continue;
+                    //return false;
                 } else if (l > level) {
                     //взятие произведено
                     return false;
                 } else if (l == level) {
                     //нас обогнали, вставка произведена
-                    return false;
+                    //а может быть и нет, може это заснувший сеттер только-что вынул объект, а мы его догналти на вставках
+                    continue;
+                    //return false;
                 } else {
                     //assert l < level;
-                    throw new RuntimeException("bad set");
+                    Thread thread = null;//threads.get(index);
+                    throw new RuntimeException("bad set ind " + index + " l " + l + ", level " + level + ", h " + getHead()
+                            + ", t " + getTail() + ", c" + capacity() + " - " + Thread.currentThread().getName() + ", " + thread != null ? thread.getName() : "");
                 }
             }
         }
         //return false;
     }
 
-    private Marker getPrevMarker(long value) {
-        long level = value / capacity();
-        return level == 0 ? null : new Marker(level);
-    }
-
-
-    protected long getTail() {
+    protected final long getTail() {
         return tailSequence.get();
     }
 
-    protected void yield() {
+    protected final void yield() {
         Thread.yield();
     }
 
@@ -147,7 +151,7 @@ public abstract class AbstractConcurrentArrayQueue<E> extends AbstractQueue<E> {
      * @param insertedTail
      * @return
      */
-    protected boolean setNextTail(long oldTail, long insertedTail) {
+    protected final boolean setNextTail(long oldTail, long insertedTail) {
         long newValue = insertedTail + 1;
         assert oldTail < newValue;
         AtomicLong sequence = tailSequence;
@@ -248,7 +252,7 @@ public abstract class AbstractConcurrentArrayQueue<E> extends AbstractQueue<E> {
         return set;
     }
 
-    protected int calcIndex(long counter) {
+    protected final int calcIndex(long counter) {
         return (int) (counter % capacity());
     }
 
@@ -256,7 +260,7 @@ public abstract class AbstractConcurrentArrayQueue<E> extends AbstractQueue<E> {
 
     @Deprecated
     @SuppressWarnings("unchecked")
-    protected E get(int index) {
+    protected final E get(int index) {
         E e = (E) elements.get(index);
         if (e != null) {
             boolean set = elements.compareAndSet(index, e, null);
@@ -268,25 +272,24 @@ public abstract class AbstractConcurrentArrayQueue<E> extends AbstractQueue<E> {
     }
 
     @SuppressWarnings("unchecked")
-    protected E get(long oldHead, long currentHead, long tail, long attempt) {
+    protected final E get(long oldHead, long currentHead, long tail, long attempt) {
         int index = calcIndex(currentHead);
         E e = (E) elements.get(index);
         if (e != null) {
             long level = currentHead / capacity();
             while (true) {
-                long l0 = levels.get(index);
+                //long l0 = levels.get(index);
                 if (levels.compareAndSet(index, level, -2)) {
                     try {
                         boolean set = elements.compareAndSet(index, e, null);
                         if (set) {
-                            threads.set(index, Thread.currentThread());
+                            //threads.lazySet(index, Thread.currentThread());
                             setNextHead(oldHead, currentHead);
                             return e;
                         } else {
                             throw new RuntimeException();
                         }
                     } finally {
-                        //threads.compareAndSet(index, Thread.currentThread(), null);
                         levels.compareAndSet(index, -2, level + 1);
                     }
                 } else {
@@ -307,7 +310,7 @@ public abstract class AbstractConcurrentArrayQueue<E> extends AbstractQueue<E> {
                         return null;
                     } else {
                         //impossible
-                        throw new RuntimeException("bad get");
+                        throw new RuntimeException("bad get l " + l + ", level " + level + ", h " + getHead() + ", t " + getTail() + ", c" + capacity());
                     }
                 }
             }
@@ -315,15 +318,8 @@ public abstract class AbstractConcurrentArrayQueue<E> extends AbstractQueue<E> {
         return null;
     }
 
-    private Marker getCurrentMarker(long value) {
-        int capacity = capacity();
-        long level = value / capacity + 1;
-        return new Marker(level);
-    }
-
-
     @Override
-    public E poll() {
+    public final E poll() {
         int capacity = capacity();
         if (capacity == 0) {
             return null;
@@ -384,26 +380,5 @@ public abstract class AbstractConcurrentArrayQueue<E> extends AbstractQueue<E> {
             }
         }
         return set;
-    }
-
-    private class Marker implements Serializable {
-        private final long level;
-
-        public Marker(long level) {
-            this.level = level;
-        }
-
-        @Override
-        public boolean equals(Object o) {
-            Marker marker = (Marker) o;
-            if (level != marker.level) return false;
-            return true;
-        }
-
-        @Override
-        public int hashCode() {
-            //todo: хреновая идея, но пока так
-            return (int) level;
-        }
     }
 }

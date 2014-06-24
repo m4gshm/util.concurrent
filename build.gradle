@@ -12,6 +12,9 @@ buildscript {
 apply plugin: 'java'
 apply plugin: 'apt'
 
+
+compileJava.options.encoding = 'UTF-8'
+
 test {
     useTestNG()
     testLogging.showStandardStreams = true
