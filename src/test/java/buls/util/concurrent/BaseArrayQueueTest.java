@@ -87,7 +87,7 @@ public abstract class BaseArrayQueueTest {
         }
         Assert.assertTrue(attemptsPerGet * getters >= inserts * attemptsPerInsert);
 
-        final ConcurrentArrayQueue<String> queue = createQueue(capacity, WRITE_STATISTIC);
+        final QueueWithStatistic<String> queue = createQueue(capacity, WRITE_STATISTIC);
 
         final CountDownLatch endTrigger = new CountDownLatch(inserts + getters);
         final CountDownLatch startTrigger = new CountDownLatch(1);
@@ -247,7 +247,7 @@ public abstract class BaseArrayQueueTest {
         Assert.assertTrue(queue.poll() == null);
     }
 
-    protected abstract ConcurrentArrayQueue<String> createQueue(int capacity, boolean writeStatistic);
+    protected abstract QueueWithStatistic<String> createQueue(int capacity, boolean writeStatistic);
 
     @Test
     public void testTwo() {

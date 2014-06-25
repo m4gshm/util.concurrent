@@ -59,8 +59,8 @@ public class ConcurrentArrayQueue3<E> extends ConcurrentArrayQueue<E> {
                     return true;
                 } else {
                     ++fails;
-                    if (hasLock) {
-                        failLockedSet.incrementAndGet();
+                    if (hasLock && writeStatistic) {
+                        failLockedSet.increment();
                     } else {
                         failSet();
                     }

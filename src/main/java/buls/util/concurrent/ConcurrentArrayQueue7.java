@@ -6,7 +6,7 @@ import java.util.concurrent.atomic.LongAdder;
 /**
  * Created by Bulgakov Alex on 31.05.2014.
  */
-public class ConcurrentArrayQueue<E> extends AbstractConcurrentArrayQueue<E> implements QueueWithStatistic<E> {
+public class ConcurrentArrayQueue7<E> extends AbstractConcurrentArrayQueue1<E> implements QueueWithStatistic<E> {
 
     protected final LongAdder successSet = new LongAdder();
     protected final LongAdder failSet = new LongAdder();
@@ -21,7 +21,7 @@ public class ConcurrentArrayQueue<E> extends AbstractConcurrentArrayQueue<E> imp
 
     protected final boolean writeStatistic;
 
-    public ConcurrentArrayQueue(int capacity, boolean writeStatistic) {
+    public ConcurrentArrayQueue7(int capacity, boolean writeStatistic) {
         super(capacity);
         this.writeStatistic = writeStatistic;
     }
@@ -67,30 +67,15 @@ public class ConcurrentArrayQueue<E> extends AbstractConcurrentArrayQueue<E> imp
     }
 
     protected long computeTail(long currentTail, int calculateType) {
-        if (calculateType == GO_NEXT) {
-            currentTail++;
-        } else {
-            currentTail = getTail();
-        }
-        return currentTail;
-    }
-
-    @Deprecated
-    protected final long computeTail(long tail) {
-        long currentTail = getTail();
-        if (tail < currentTail) {
-            tail = currentTail;
-        } else {
-            tail++;
-        }
-        return tail;
-    }
-
-    @Deprecated
-    protected final void checkHeadTailConsistency() {
-        long h = getHead();
-        long t = getTail();
-        checkHeadTailConsistency(h, t);
+        return getTail();
+//        if (calculateType == GO_NEXT) {
+//            currentTail++;
+//        } else {
+//            currentTail = getTail();
+//            //long h = getHead();
+//            //assert h - head >= capacity;
+//        }
+//        return currentTail;
     }
 
     protected final boolean checkTailOverflow(long tail, int capacity) {
@@ -150,21 +135,18 @@ public class ConcurrentArrayQueue<E> extends AbstractConcurrentArrayQueue<E> imp
     }
 
     protected long computeHead(long head, long tail) {
-        if (tail - head > capacity()) {
-            final long h = getHead();
-            if (h < head) {
-                head++;
-            } else {
-                head = h;
-            }
-        } else {
-            head++;
-        }
-        return head;
-    }
-
-    protected long computeHead(long head) {
-        return computeHead(head, getTail());
+        return getHead();
+//        if (tail - head > capacity()) {
+//            final long h = getHead();
+//            if (h < head) {
+//                head++;
+//            } else {
+//                head = h;
+//            }
+//        } else {
+//            head++;
+//        }
+//        return head;
     }
 
     @Override
@@ -176,7 +158,6 @@ public class ConcurrentArrayQueue<E> extends AbstractConcurrentArrayQueue<E> imp
         return result;
     }
 
-    @Override
     public void printStatistic(PrintStream printStream) {
         if (writeStatistic) {
             printStream.println("success sets " + successSet);
