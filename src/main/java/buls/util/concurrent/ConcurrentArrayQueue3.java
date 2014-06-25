@@ -121,7 +121,7 @@ public class ConcurrentArrayQueue3<E> extends ConcurrentArrayQueue<E> {
                 hasLock = true;
 
                 currentHead = computeHead(currentHead);
-                if (checkHeadOverflow(currentHead)) {
+                if (checkHeadOverflow(currentHead, getTail())) {
                     return null;
                 }
                 index = calcIndex(currentHead);
@@ -153,7 +153,7 @@ public class ConcurrentArrayQueue3<E> extends ConcurrentArrayQueue<E> {
                     }
 
                     currentHead = computeHead(currentHead);
-                    if (checkHeadOverflow(currentHead)) {
+                    if (checkHeadOverflow(currentHead, getTail())) {
                         return null;
                     }
                     index = calcIndex(currentHead);

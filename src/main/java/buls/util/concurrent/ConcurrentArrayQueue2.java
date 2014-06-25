@@ -62,7 +62,7 @@ public class ConcurrentArrayQueue2<E> extends ConcurrentArrayQueue<E> {
     private boolean lockSet(long newTail, int capacity, int index) {
         Type prevType = newTail >= capacity ? Type.read : null;
         boolean set;
-        int iterations=0;
+        int iterations = 0;
         while (!(set = types.compareAndSet(index, prevType, Type.writing))) {
             Type type = types.get(index);
             if (type != Type.reading) {
@@ -99,7 +99,7 @@ public class ConcurrentArrayQueue2<E> extends ConcurrentArrayQueue<E> {
                 failGet();
 
                 currentHead = computeHead(currentHead);
-                if (checkHeadOverflow(currentHead)) {
+                if (checkHeadOverflow(currentHead, getTail())) {
                     return null;
                 }
                 index = calcIndex(currentHead);
@@ -116,7 +116,7 @@ public class ConcurrentArrayQueue2<E> extends ConcurrentArrayQueue<E> {
 
     private boolean lockGet(int index) {
         boolean set;
-        int iterations=0;
+        int iterations = 0;
         while (!(set = types.compareAndSet(index, Type.written, Type.reading))) {
             Type type = types.get(index);
             if (type != Type.writing) {

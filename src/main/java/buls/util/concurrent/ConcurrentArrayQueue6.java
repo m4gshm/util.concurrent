@@ -10,7 +10,7 @@ public class ConcurrentArrayQueue6<E> extends ConcurrentArrayQueue<E> {
     }
 
     @Override
-    protected final long computeTail(long tail) {
+    protected final long computeTail(long tail, int res) {
         long currentTail = getTail();
         if (tail < currentTail) {
             tail = currentTail;

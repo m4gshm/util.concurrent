@@ -1,7 +1,5 @@
 package buls.util.concurrent;
 
-import sun.misc.Contended;
-
 import java.util.AbstractQueue;
 import java.util.Iterator;
 import java.util.concurrent.atomic.AtomicLong;
@@ -12,15 +10,19 @@ import java.util.concurrent.atomic.AtomicReferenceArray;
  * Created by Bulgakov Alex on 14.06.2014.
  */
 public abstract class AbstractConcurrentArrayQueue<E> extends AbstractQueue<E> {
-    @Contended
+    public static final int EMPTY = 0;
+    public static final int POOLING = -2;
+    public static final int PUTTING = -1;
+    public static final int NOT_EMPTY = 1;
+
+    public final static int SUCCESS = 0;
+    public final static int GO_NEXT = 1;
+    public final static int RECALCULATE = 2;
+
     protected final AtomicReferenceArray<Object> elements;
-    @Contended
     protected final AtomicLongArray levels;
-    //@Contended
     //protected final AtomicReferenceArray<Thread> threads;
-    @Contended
     protected final AtomicLong tailSequence = new AtomicLong(0);
-    @Contended
     protected final AtomicLong headSequence = new AtomicLong(0);
 
     public AbstractConcurrentArrayQueue(int capacity) {
@@ -31,7 +33,9 @@ public abstract class AbstractConcurrentArrayQueue<E> extends AbstractQueue<E> {
 
     @Override
     public String toString() {
-        return "h: " + headSequence + ", t:" + tailSequence + ", c:" + capacity() + " " + elements.toString();
+        return "h: " + headSequence + ", t:" + tailSequence + ", c:" + capacity()
+                + "\n" + elements.toString()
+                + "\n" + levels.toString();
     }
 
     @Override
@@ -87,56 +91,65 @@ public abstract class AbstractConcurrentArrayQueue<E> extends AbstractQueue<E> {
         return elements.compareAndSet(index, null, e);
     }
 
-    protected final boolean set(E e, long tail, long currentTail, long head, long attempt) {
+    protected final int set(final E e, final long tail, final long currentTail, final long head, final long attempt) {
         int index = calcIndex(currentTail);
-        long level = currentTail / capacity();
-
         while (true) {
             //long l0 = levels.get(index);
-            if (levels.compareAndSet(index, level, -1)) {
+            if (levels.compareAndSet(index, EMPTY, PUTTING)) {
+                boolean success = false;
                 try {
-
                     boolean set = elements.compareAndSet(index, null, e);
-
+                    int result;
                     if (set) {
                         //threads.lazySet(index, Thread.currentThread());
-                        setNextTail(tail, currentTail);
+                        //проверка вставки за хвост
+                        long h = getHead();
+                        boolean behindHead = checkBehindHead(currentTail, h);
+                        if (behindHead) {
+                            //int hI = calcIndex(h);
+                            //int tI = calcIndex(getTail());
+                            elements.compareAndSet(index, e, null);
+                            result = RECALCULATE;
+                        } else {
+                            checkHeadTailConsistency(h, currentTail);
+                            setNextTail(tail, currentTail);
+                            success = true;
+                            result = SUCCESS;
+                        }
+
                     } else {
-                        return false;
+                        throw new IllegalStateException("bad set " + index);
+                        //return false;
                     }
-                    return set;
+                    return result;
                 } finally {
-                    levels.compareAndSet(index, -1, level);
+                    int result = success ? NOT_EMPTY : EMPTY;
+                    levels.compareAndSet(index, PUTTING, result);
                 }
 
             } else {
-                long l = levels.get(index);
-                if (l == -1) {
-                    //нас обогнали, производится вставка
-                    //continue;
-                    return false;
-                } else if (l == -2) {
-                    //производится взятие
+                final long l = levels.get(index);
+                if (l == PUTTING || l == NOT_EMPTY) {
+                    return GO_NEXT;
+                } else if (l == POOLING) {
                     continue;
-                    //return false;
-                } else if (l > level) {
-                    //взятие произведено
-                    return false;
-                } else if (l == level) {
-                    //нас обогнали, вставка произведена
-                    //а может быть и нет, може это заснувший сеттер только-что вынул объект, а мы его догналти на вставках
-                    continue;
-                    //return false;
                 } else {
-                    //напоролись на запоздавшую вставку
-                    //assert l < level;
-                    Thread thread = null;//threads.get(index);
-                    throw new RuntimeException("bad set ind " + index + " l " + l + ", level " + level + ", h " + getHead()
-                            + ", t " + getTail() + ", c" + capacity() + " - " + Thread.currentThread().getName() + ", " + thread != null ? thread.getName() : "");
+                    assert l == EMPTY;
+                    //поток опоздал во всем
+                    return RECALCULATE;
                 }
             }
         }
         //return false;
+    }
+
+    protected boolean checkBehindHead(long currentTail, long head) {
+        if (head > currentTail) {
+            //headSequence.set(currentTail);
+            return true;
+        } else {
+            return false;
+        }
     }
 
     protected final long getTail() {
@@ -162,90 +175,8 @@ public abstract class AbstractConcurrentArrayQueue<E> extends AbstractQueue<E> {
             if (currentValue < newValue) {
                 set = sequence.compareAndSet(currentValue, newValue);
             } else if (currentValue == newValue) {
-                //todo: просчитать двойную вставку с обгоном хвостом головы
-                //двойна вставка, случай 1: запоздавшая вставка.
-                //t2 пытается вставить  в ячейку 0, в момент когда t1 уже вставил
-                // в эту ячейку и передвинул хвость вперед,
-                //а t3 прочитал её и передвинул голову вперед
-
-                //head = 0, tail = 0, capacity = 5
-
-                //t1    offer()                 index = tail % capacity = 0
-                //t1    setElement(0, val1)     true
-                //t2    offer()                 index = tail % capacity = 0
-                //t1    setNextTail 1           true
-
-                //t3    pool()                  index = head % capacity = 0,  head 0 < tail 1
-                //t3    getElement(0)           true
-                //t3    setNextHead 1           true
-
-                //t2    setElement(0, val2)     true
-                //t2    setNextTail 1           false  ; tail уже 1 , нас обогнал t1
-                //t2    insertTail 0 < head 1   true , голова уведена вперед потоком t3
-                //t2    replaceByNull(0, val1)  true
-                //t2    return false
-
-                //двойная вставка, случай 2: запоздавшая вставка.
-                //t2 пытается вставить  в ячейку 0, в момент когда t1 уже вставил
-                // в эту ячейку и передвинул хвость вперед,
-                //а t3 прочитал её, но НЕ ПЕРЕДВИНУЛ ГОЛОВУ ВПЕРЕД
-
-                //head = 0, tail = 0, capacity = 5
-
-                //t1    offer()                 index = tail % capacity = 0
-                //t1    setElement(0, val1)     true
-                //t2    offer()                 index = tail % capacity = 0
-                //t1    setNextTail 1           true
-
-                //t3    pool()                  index = head % capacity = 0,  head 0 < tail 1
-                //t3    getElement(0)           true
-
-
-                //t2    setElement(0, val2)     true
-                //t2    setNextTail 1           false  ; tail уже 1 , нас обогнал t1
-                //t2    insertTail 0 == head 0   true , голова на месте
-                //t2    return true
-
-                //t3    setNextHead 1           true  - передвигаем голову и получаем val2 за пределами очереди
-
-
-                //двойная вставка, случай 3: запоздавшая вставка, но взятие с маркером взятия
-                //t2 пытается вставить  в ячейку 0, в момент когда t1 уже вставил
-                // в эту ячейку и передвинул хвость вперед,
-                //а t3 прочитал её, отметил маркером
-
-                //head = 0, tail = 0, capacity = 5, prevMarker = null
-
-                //t1    offer()                 index = tail % capacity = 0
-                //t1    getPrevMarker           PM = null
-                //t1    cas(0, PM, val1)        true
-                //t2    offer()                 index = tail % capacity = 0
-                //t1    setNextTail 1           true
-
-                //t3    pool()                  index = head % capacity = 0,  head 0 < tail 1
-                //t3    get(0)                  val1 взял значение
-                //t3    getCurrentMarker        head 0 / capacity 5 = 0 MARKER(0 + 1) = MARKER(1)
-                //t3    MARKER(1)
-                //t3    cas(0, val1, MARKER(1))  true заменил его на MARKER_1
-
-                //t2    getPrevMarker           null
-                //t2    cas(0, null, val2)      false хвост обогнал, можно выходить
-                //t2    return false
-
-                //t3    setNextHead 1           true
-
-                //произошло наполнение очереди, наичнаем вставку вначало массива
-                //head = 2, tail = 5, capacity = 5, prevMarker = null, MARKER_1 != null
-                //t1    offer()             index = tail 5 % capacity 5 = 0
-                //t1    getPrevMarker()     tail / capacity = 1 = new MARKER(1)
-                //t1    cas(0, MARKER(1), val3)        true
-
-                //t2    offer()                 index = tail 5 % capacity 5 = 0
-                //t2    getPrevMarker()     tail / capacity = 1 = new MARKER(1)
-                //t1    cas(0, MARKER(1), val4)       false  - ячейка уже извлечена
                 return false;
             } else {
-                //todo: хвост может обогнать и в этом случае
                 assert currentValue > newValue : oldTail + " " + currentValue + " " + newValue;
                 return true;
             }
@@ -255,6 +186,12 @@ public abstract class AbstractConcurrentArrayQueue<E> extends AbstractQueue<E> {
 
     protected final int calcIndex(long counter) {
         return (int) (counter % capacity());
+    }
+
+    protected final void checkHeadTailConsistency(long head, long tail) {
+        if (head > tail) {
+            throw new IllegalStateException("head <= tail, " + " head: " + head + ", tail: " + tail);
+        }
     }
 
     protected abstract E getElement(long head, long tail);
@@ -275,52 +212,42 @@ public abstract class AbstractConcurrentArrayQueue<E> extends AbstractQueue<E> {
     @SuppressWarnings("unchecked")
     protected final E get(long oldHead, long currentHead, long tail, long attempt) {
         int index = calcIndex(currentHead);
-
-            long level = currentHead / capacity();
-            while (true) {
-                //long l0 = levels.get(index);
-                if (levels.compareAndSet(index, level, -2)) {
-                    boolean success = false;
-                    try {
-                        E e = (E) elements.get(index);
-                        if (e == null) {
-                            throw new IllegalStateException("NULL");
-                            //return null;
-                        }
-                        boolean set = elements.compareAndSet(index, e, null);
-                        if (set) {
-                            success = true;
-                            //threads.lazySet(index, Thread.currentThread());
-                            setNextHead(oldHead, currentHead);
-                            return e;
-                        } else {
-                            throw new RuntimeException();
-                        }
-                    } finally {
-                        levels.compareAndSet(index, -2, level + (success ? 1 : 0));
+        while (true) {
+            //long l0 = levels.get(index);
+            if (levels.compareAndSet(index, NOT_EMPTY, POOLING)) {
+                boolean success = false;
+                try {
+                    E e = (E) elements.get(index);
+                    if (e == null) {
+                        throw new IllegalStateException("NULL");
+                        //return null;
                     }
-                } else {
-//                return null;
-                    long l = levels.get(index);
-                    if (l == -2) {
-                        //другой поток производит взятие
-                        return null;
-                        //continue;
-                    } else if (l == -1) {
-                        //завершается вставка в ячейку
-                        continue;
-                    } else if (level == l) {
-                        //только-что была вставка
-                        continue;
-                    } else if (l > level) {
-                        //нас обогнали
-                        return null;
+                    boolean set = elements.compareAndSet(index, e, null);
+                    if (set) {
+                        //threads.lazySet(index, Thread.currentThread());
+                        setNextHead(oldHead, currentHead);
+                        success = true;
+                        return e;
                     } else {
-                        //impossible
-                        throw new RuntimeException("bad get l " + l + ", level " + level + ", h " + getHead() + ", t " + getTail() + ", c" + capacity());
+                        throw new RuntimeException();
                     }
+                } finally {
+                    int result = success ? EMPTY : NOT_EMPTY;
+                    levels.compareAndSet(index, POOLING, result);
+                }
+            } else {
+                final long l = levels.get(index);
+                if (l == PUTTING) {
+                    //завершается вставка в ячейку
+                    continue;
+                    //} else if (l == POOLING || l == EMPTY) {
+                    //    //другой поток производит взятие
+                    //    return null;
+                } else {
+                    return null;
                 }
             }
+        }
         //return null;
     }
 
@@ -365,21 +292,8 @@ public abstract class AbstractConcurrentArrayQueue<E> extends AbstractQueue<E> {
             long currentValue = sequence.get();
             if (currentValue < newValue) {
                 set = sequence.compareAndSet(currentValue, newValue);
-                //} else if (currentValue == newValue) {
-                //двойное взятие
-                //head = 0, tail = 5, capacity = 5
-                //t1    pool()          index = head % capacity = 0
-                //t1    pool()          index = head % capacity = 0
-                //t1    getElement(0)   true
-                //t1    setNextHead 1   true
-                //t3    offer()         index = tail % capacity = 0
-                //t3    setElement(0)   true
-                //t2    getElement(0)   true
-                //t2    setNextHead 1   false
-
-                //t1 и t2 успешно взяли объект из одной и той же ячейки, t1 первым выставил следующий индекс, t2 опоздал
-
-                //    break;
+            } else if (currentValue == newValue) {
+                break;
             } else {
                 assert currentValue > newValue : oldHead + " " + currentValue + " " + newValue;
                 break;

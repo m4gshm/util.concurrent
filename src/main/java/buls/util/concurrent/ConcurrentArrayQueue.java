@@ -1,30 +1,24 @@
 package buls.util.concurrent;
 
-import sun.misc.Contended;
-
 import java.io.PrintStream;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.atomic.LongAdder;
 
 /**
  * Created by Bulgakov Alex on 31.05.2014.
  */
 public class ConcurrentArrayQueue<E> extends AbstractConcurrentArrayQueue<E> {
 
-    @Contended
     protected final AtomicLong successSet = new AtomicLong();
-    @Contended
     protected final AtomicLong failSet = new AtomicLong();
-    @Contended
     protected final AtomicLong failLockedSet = new AtomicLong();
-    @Contended
     protected final AtomicLong successGet = new AtomicLong();
-    @Contended
     protected final AtomicLong failGet = new AtomicLong();
 
-    @Contended
     protected final AtomicLong failNextTail = new AtomicLong();
-    @Contended
     protected final AtomicLong failNextHead = new AtomicLong();
+
+    protected final LongAdder setBehindHead = new LongAdder();
 
     protected final boolean writeStatistic;
 
@@ -34,28 +28,29 @@ public class ConcurrentArrayQueue<E> extends AbstractConcurrentArrayQueue<E> {
     }
 
     @Override
-    protected boolean setElement(final E e, final long tail, long head) {
+    protected boolean setElement(final E e, final long tail, final long head) {
         if (e == null) {
             throw new NullPointerException("e cannot be null");
         }
         long currentTail = tail;
-        int capacity = capacity();
+        final int capacity = capacity();
 
         long attempt = 0;
         while (true) {
-            if (set(e, tail, currentTail, head, ++attempt)) {
+            final int res = set(e, tail, currentTail, head, ++attempt);
+            if (res == SUCCESS) {
 
-                checkHeadTailConsistency();
+                //checkHeadTailConsistency(getHead(), currentTail);
 
                 successSet();
 
                 return true;
             } else {
-
                 failSet();
+                currentTail = computeTail(currentTail, res);
 
-                currentTail = computeTail(currentTail);
-                if (checkTailOverflow(currentTail, capacity)) {
+                boolean overflow = checkTailOverflow(currentTail, capacity);
+                if (overflow) {
                     return false;
                 }
             }
@@ -63,26 +58,51 @@ public class ConcurrentArrayQueue<E> extends AbstractConcurrentArrayQueue<E> {
         //throw new IllegalStateException("setElement");
     }
 
+    @Override
+    protected final boolean checkBehindHead(long currentTail, long head) {
+        final boolean result = super.checkBehindHead(currentTail, head);
+        if (writeStatistic && result) {
+            setBehindHead.increment();
+        }
+        return result;
+    }
+
+    protected long computeTail(long currentTail, int calculateType) {
+        if (calculateType == GO_NEXT) {
+            currentTail++;
+        } else {
+            currentTail = getTail();
+            //long h = getHead();
+            //assert h - head >= capacity;
+        }
+        return currentTail;
+    }
+
+    @Deprecated
+    protected final long computeTail(long tail) {
+        long currentTail = getTail();
+        if (tail < currentTail) {
+            tail = currentTail;
+        } else {
+            tail++;
+        }
+        return tail;
+    }
+
+    @Deprecated
     protected final void checkHeadTailConsistency() {
-        long h = headSequence.get();
-        long t = tailSequence.get();
-        assert h <= t;
+        long h = getHead();
+        long t = getTail();
+        checkHeadTailConsistency(h, t);
     }
 
     protected final boolean checkTailOverflow(long tail, int capacity) {
-        long head = getHead();
-        long amount = tail - head;
-        return amount >= capacity;
+        return checkTailOverflow(tail, capacity, getHead());
     }
 
-    protected long computeTail(long tail) {
-        //long currentTail = getTail();
-        //if (tail < currentTail) {
-        //    tail = currentTail;
-        //} else {
-            tail++;
-        //}
-        return tail;
+    protected final boolean checkTailOverflow(long tail, int capacity, long head) {
+        long amount = tail - head;
+        return amount >= capacity;
     }
 
     @Override
@@ -92,14 +112,15 @@ public class ConcurrentArrayQueue<E> extends AbstractConcurrentArrayQueue<E> {
         while (true) {
             E e;
             if ((e = get(head, currentHead, tail, ++attempts)) != null) {
-                checkHeadTailConsistency();
+                checkHeadTailConsistency(currentHead, getTail());
                 successGet();
                 return e;
             } else {
                 failGet();
 
-                currentHead = computeHead(currentHead);
-                if (checkHeadOverflow(currentHead)) {
+                long t = getTail();
+                currentHead = computeHead(currentHead, t);
+                if (checkHeadOverflow(currentHead, t)) {
                     return null;
                 }
             }
@@ -127,8 +148,7 @@ public class ConcurrentArrayQueue<E> extends AbstractConcurrentArrayQueue<E> {
         }
     }
 
-    protected final boolean checkHeadOverflow(long newHead) {
-        long tail = getTail();
+    protected final boolean checkHeadOverflow(long newHead, long tail) {
         if (newHead >= tail) {
             assert newHead == tail;
             return true;
@@ -136,14 +156,22 @@ public class ConcurrentArrayQueue<E> extends AbstractConcurrentArrayQueue<E> {
         return false;
     }
 
-    protected long computeHead(long head) {
-//        long currentHead = getHead();
-//        if (head < currentHead) {
-//            head = currentHead;
-//        } else {
+    protected long computeHead(long head, long tail) {
+        if (tail - head > capacity()) {
+            final long h = getHead();
+            if (h < head) {
+                head++;
+            } else {
+                head = h;
+            }
+        } else {
             head++;
-//        }
+        }
         return head;
+    }
+
+    protected long computeHead(long head) {
+        return computeHead(head, getTail());
     }
 
 
@@ -158,14 +186,16 @@ public class ConcurrentArrayQueue<E> extends AbstractConcurrentArrayQueue<E> {
 
     public void printStatistic(PrintStream printStream) {
         if (writeStatistic) {
-            printStream.println("success sets " + successSet.get());
-            printStream.println("fail sets " + failSet.get());
-            printStream.println("fail locked sets " + failLockedSet.get());
-            printStream.println("success gets " + successGet.get());
-            printStream.println("fail gets " + failGet.get());
+            printStream.println("success sets " + successSet);
+            printStream.println("fail sets " + failSet);
+            printStream.println("fail locked sets " + failLockedSet);
+            printStream.println("success gets " + successGet);
+            printStream.println("fail gets " + failGet);
 
-            printStream.println("fail next tail " + failNextTail.get());
-            printStream.println("fail next head " + failNextHead.get());
+            printStream.println("fail next tail " + failNextTail);
+            printStream.println("fail next head " + failNextHead);
+
+            printStream.println("set behind head " + setBehindHead);
         }
     }
 

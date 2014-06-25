@@ -74,7 +74,7 @@ public class ConcurrentArrayQueue4<E> extends ConcurrentArrayQueue<E> {
                 getLock.lock();
             }
             long currentHead = getHead();
-            if (checkHeadOverflow(currentHead)) {
+            if (checkHeadOverflow(currentHead, getTail())) {
                 return null;
             }
 
