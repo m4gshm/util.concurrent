@@ -5,7 +5,7 @@ import java.util.concurrent.Semaphore;
 /**
  * Created by Alex on 22.06.2014.
  */
-public class ConcurrentArrayQueue5<E> extends ConcurrentArrayQueue<E> {
+public class ConcurrentArrayQueue5<E> extends ConcurrentArrayQueue7<E> {
     private final Semaphore setSemaphore;
 
     public ConcurrentArrayQueue5(int capacity, boolean writeStatistic, int concurrentSets) {

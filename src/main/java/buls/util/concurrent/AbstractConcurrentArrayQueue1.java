@@ -1,6 +1,7 @@
 package buls.util.concurrent;
 
 import java.util.Iterator;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReferenceArray;
 import java.util.concurrent.atomic.AtomicStampedReference;
 
@@ -15,6 +16,8 @@ public abstract class AbstractConcurrentArrayQueue1<E> extends AbstractArrayQueu
     public final static int GO_NEXT = 1;
     public final static int RECALCULATE = 2;
 
+    protected final AtomicLong tailSequence = new AtomicLong(0);
+    protected final AtomicLong headSequence = new AtomicLong(0);
     protected final AtomicReferenceArray<AtomicStampedReference<Object>> elements;
 
     public AbstractConcurrentArrayQueue1(int capacity) {
@@ -27,7 +30,7 @@ public abstract class AbstractConcurrentArrayQueue1<E> extends AbstractArrayQueu
 
     @Override
     public String toString() {
-        StringBuilder b = new StringBuilder().append("h: ").append(headSequence).append(", t:").append(tailSequence).append(", c:").append(capacity()).append("\n");
+        StringBuilder b = new StringBuilder().append("h: ").append(getHead()).append(", t:").append(getTail()).append(", c:").append(capacity()).append("\n");
         b.append("[");
         for (int i = 0; i < elements.length(); ++i) {
             if (i > 0) {
@@ -49,6 +52,15 @@ public abstract class AbstractConcurrentArrayQueue1<E> extends AbstractArrayQueu
 
     }
 
+    @Override
+    protected long getTail() {
+        return tailSequence.get();
+    }
+
+    @Override
+    protected long getHead() {
+        return headSequence.get();
+    }
 
     @Override
     public Iterator<E> iterator() {
@@ -102,4 +114,44 @@ public abstract class AbstractConcurrentArrayQueue1<E> extends AbstractArrayQueu
         //return null;
     }
 
+    protected boolean setNextHead(long oldHead, long insertedHead) {
+        if (insertedHead < oldHead) {
+            throw new RuntimeException("insertedHead < oldHead " + insertedHead + " < " + oldHead);
+        }
+        long newValue = insertedHead + 1;
+        assert oldHead < newValue;
+        AtomicLong sequence = headSequence;
+        boolean set = sequence.compareAndSet(oldHead, newValue);
+        while (!set) {
+            long currentValue = sequence.get();
+            if (currentValue < newValue) {
+                set = sequence.compareAndSet(currentValue, newValue);
+            } else if (currentValue == newValue) {
+                break;
+            } else {
+                assert currentValue > newValue : oldHead + " " + currentValue + " " + newValue;
+                break;
+            }
+        }
+        return set;
+    }
+
+    protected final boolean setNextTail(long oldTail, long insertedTail) {
+        long newValue = insertedTail + 1;
+        assert oldTail < newValue;
+        AtomicLong sequence = tailSequence;
+        boolean set = sequence.compareAndSet(oldTail, newValue);
+        while (!set) {
+            long currentValue = sequence.get();
+            if (currentValue < newValue) {
+                set = sequence.compareAndSet(currentValue, newValue);
+            } else if (currentValue == newValue) {
+                return false;
+            } else {
+                assert currentValue > newValue : oldTail + " " + currentValue + " " + newValue;
+                return true;
+            }
+        }
+        return set;
+    }
 }

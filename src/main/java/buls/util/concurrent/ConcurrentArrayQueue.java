@@ -34,9 +34,9 @@ public class ConcurrentArrayQueue<E> extends AbstractConcurrentArrayQueue<E> imp
         long currentTail = tail;
         final int capacity = capacity();
 
-        long attempt = 0;
+
         while (true) {
-            final int res = set(e, tail, currentTail, head, ++attempt);
+            final int res = set(e, tail, currentTail);
             if (res == SUCCESS) {
 
                 //checkHeadTailConsistency(getHead(), currentTail);
@@ -105,10 +105,9 @@ public class ConcurrentArrayQueue<E> extends AbstractConcurrentArrayQueue<E> imp
     @Override
     protected E getElement(final long head, long tail) {
         long currentHead = head;
-        long attempts = 0;
         while (true) {
             E e;
-            if ((e = get(head, currentHead, tail, ++attempts)) != null) {
+            if ((e = get(head, currentHead)) != null) {
                 checkHeadTailConsistency(currentHead, getTail());
                 successGet();
                 return e;
