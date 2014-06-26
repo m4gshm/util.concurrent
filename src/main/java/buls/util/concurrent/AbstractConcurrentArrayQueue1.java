@@ -1,5 +1,8 @@
 package buls.util.concurrent;
 
+import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
+
 import java.util.Iterator;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReferenceArray;
@@ -18,6 +21,7 @@ public abstract class AbstractConcurrentArrayQueue1<E> extends AbstractArrayQueu
 
     protected final AtomicLong tailSequence = new AtomicLong(0);
     protected final AtomicLong headSequence = new AtomicLong(0);
+    @NotNull
     protected final AtomicReferenceArray<AtomicStampedReference<Object>> elements;
 
     public AbstractConcurrentArrayQueue1(int capacity) {
@@ -28,6 +32,7 @@ public abstract class AbstractConcurrentArrayQueue1<E> extends AbstractArrayQueu
         //threads = new AtomicReferenceArray<>(capacity);
     }
 
+    @NotNull
     @Override
     public String toString() {
         StringBuilder b = new StringBuilder().append("h: ").append(getHead()).append(", t:").append(getTail()).append(", c:").append(capacity()).append("\n");
@@ -62,6 +67,7 @@ public abstract class AbstractConcurrentArrayQueue1<E> extends AbstractArrayQueu
         return headSequence.get();
     }
 
+    @NotNull
     @Override
     public Iterator<E> iterator() {
         throw new UnsupportedOperationException();
@@ -94,6 +100,7 @@ public abstract class AbstractConcurrentArrayQueue1<E> extends AbstractArrayQueu
     }
 
 
+    @Nullable
     @SuppressWarnings("unchecked")
     protected final E get(long oldHead, long currentHead, long tail, long attempt) {
         int index = calcIndex(currentHead);

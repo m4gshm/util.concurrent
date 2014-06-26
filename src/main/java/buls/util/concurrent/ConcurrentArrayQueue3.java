@@ -1,5 +1,8 @@
 package buls.util.concurrent;
 
+import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
+
 import java.io.PrintStream;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.LongAdder;
@@ -30,7 +33,7 @@ public class ConcurrentArrayQueue3<E> extends ConcurrentArrayQueue<E> {
     }
 
     @Override
-    protected boolean setElement(final E e, final long tail, long head) {
+    protected boolean setElement(@NotNull final E e, final long tail, long head) {
         long currentTail = tail;
         int capacity = capacity();
 
@@ -71,7 +74,7 @@ public class ConcurrentArrayQueue3<E> extends ConcurrentArrayQueue<E> {
         }
     }
 
-
+    @Nullable
     @Override
     protected E getElement(final long head, long tail) {
         long currentHead = head;
@@ -98,7 +101,7 @@ public class ConcurrentArrayQueue3<E> extends ConcurrentArrayQueue<E> {
                     }
 
                     long t = getTail();
-                    currentHead = computeHead(currentHead, t);
+                    currentHead = computeHead(currentHead);
                     if (checkHeadOverflow(currentHead, t)) {
                         return null;
                     }
@@ -111,10 +114,9 @@ public class ConcurrentArrayQueue3<E> extends ConcurrentArrayQueue<E> {
                 lock.unlock();
             }
         }
-        //throw new IllegalStateException("getElement");
     }
 
-    private boolean acquireOnFail(long fails, int threshold, AtomicBoolean flag, Lock lock) {
+    private boolean acquireOnFail(long fails, int threshold, @NotNull AtomicBoolean flag, @NotNull Lock lock) {
         boolean needLock = fails >= threshold;
         boolean hasLock = acquireLock(needLock, lock);
         if (hasLock) {
@@ -123,7 +125,7 @@ public class ConcurrentArrayQueue3<E> extends ConcurrentArrayQueue<E> {
         return hasLock;
     }
 
-    private void unmarkNeedLock(boolean lockRequested, AtomicBoolean flag) {
+    private void unmarkNeedLock(boolean lockRequested, @NotNull AtomicBoolean flag) {
         if (lockRequested) {
             boolean set = flag.compareAndSet(true, false);
             //if (!set) {
@@ -146,14 +148,14 @@ public class ConcurrentArrayQueue3<E> extends ConcurrentArrayQueue<E> {
         }
     }
 
-    private void markNeedLock(AtomicBoolean flag) {
+    private void markNeedLock(@NotNull AtomicBoolean flag) {
         boolean set = flag.compareAndSet(false, true);
         if (!set) {
             throw new IllegalStateException("cannot set needLock  true");
         }
     }
 
-    private boolean acquireLock(boolean needLock, Lock lock) {
+    private boolean acquireLock(boolean needLock, @NotNull Lock lock) {
         if (needLock) {
             //неудачник, просим блокировку
             lock.lock();
@@ -170,18 +172,6 @@ public class ConcurrentArrayQueue3<E> extends ConcurrentArrayQueue<E> {
             return true;
         }
         return false;
-    }
-
-
-    @Deprecated
-    protected final long computeTail(long tail) {
-        long currentTail = getTail();
-        if (tail < currentTail) {
-            tail = currentTail;
-        } else {
-            tail++;
-        }
-        return tail;
     }
 
     private void statGetLockRequest() {
@@ -202,7 +192,7 @@ public class ConcurrentArrayQueue3<E> extends ConcurrentArrayQueue<E> {
     }
 
     @Override
-    public void printStatistic(PrintStream printStream) {
+    public void printStatistic(@NotNull PrintStream printStream) {
         if (writeStatistic) {
             super.printStatistic(printStream);
             printStream.println("set locks " + setLocks);

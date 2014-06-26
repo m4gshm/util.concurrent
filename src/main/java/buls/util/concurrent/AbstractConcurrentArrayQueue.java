@@ -1,5 +1,8 @@
 package buls.util.concurrent;
 
+import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
+
 import java.util.Iterator;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicLongArray;
@@ -8,21 +11,22 @@ import java.util.concurrent.atomic.AtomicLongArray;
  * Created by Bulgakov Alex on 14.06.2014.
  */
 public abstract class AbstractConcurrentArrayQueue<E> extends AbstractArrayQueue<E> {
-    public static final int EMPTY = 0;
     public static final int POOLING = -2;
     public static final int PUTTING = -1;
-    public static final int NOT_EMPTY = 1;
 
     public final static int SUCCESS = 0;
     public final static int GO_NEXT = 1;
-    public final static int RECALCULATE = 2;
-    public final static int TRY_AGAIN = 3;
+    public final static int GET_CURRENT = 2;
+    public final static int GET_CURRENT_GO_NEXT = 3;
+    public final static int TRY_AGAIN = 4;
 
+    @NotNull
     protected final AtomicLongArray levels;
 
     protected final AtomicLong tailSequence = new AtomicLong();
     protected final AtomicLong headSequence = new AtomicLong();
 
+    @NotNull
     private final Object[] elements;
 
     public AbstractConcurrentArrayQueue(int capacity) {
@@ -30,6 +34,7 @@ public abstract class AbstractConcurrentArrayQueue<E> extends AbstractArrayQueue
         levels = new AtomicLongArray(capacity);
     }
 
+    @NotNull
     @Override
     public String toString() {
         return "h: " + headSequence + ", t:" + tailSequence + ", c:" + capacity()
@@ -37,6 +42,7 @@ public abstract class AbstractConcurrentArrayQueue<E> extends AbstractArrayQueue
                 + "\n" + levels.toString();
     }
 
+    @NotNull
     @Override
     public Iterator<E> iterator() {
         throw new UnsupportedOperationException();
@@ -64,31 +70,22 @@ public abstract class AbstractConcurrentArrayQueue<E> extends AbstractArrayQueue
 
     protected final int set(final E e, final long tail, final long currentTail) {
         int index = calcIndex(currentTail);
+        long level = calcLevel(currentTail);
         while (true) {
-            if (startPutting(index)) {
-                boolean success = false;
+            if (startPutting(index, level)) {
                 try {
                     _insert(e, index);
                     int result;
 
-                    long h = getHead();
-                    boolean behindHead = checkBehindHead(currentTail, h);
-                    if (behindHead) {
-                        _remove(e, index);
-                        result = RECALCULATE;
-                    } else {
-                        //checkHeadTailConsistency(h, currentTail);
-                        setNextTail(tail, currentTail);
-                        success = true;
-                        result = SUCCESS;
-                    }
+                    setNextTail(tail, currentTail);
+
+                    result = SUCCESS;
                     return result;
                 } finally {
-                    finishPutting(index, success);
+                    finishPutting(index, level);
                 }
             } else {
-                int result;
-                result = failStartPutting(index);
+                int result = failPutting(index, level);
                 if (result != TRY_AGAIN) {
                     return result;
                 }
@@ -96,30 +93,35 @@ public abstract class AbstractConcurrentArrayQueue<E> extends AbstractArrayQueue
         }
     }
 
-    private int failStartPutting(int index) {
+    private int failPutting(int index, long level) {
         int result;
         final long l = levels.get(index);
-        if (l == PUTTING || l == NOT_EMPTY) {
+        if (l == PUTTING) {
             result = GO_NEXT;
         } else if (l == POOLING) {
             result = TRY_AGAIN;
+        } else if (isAlreadyPut(level, l)) {
+            result = GO_NEXT;
         } else {
-            assert l == EMPTY;
-            //поток опоздал во всем
-            result = RECALCULATE;
+            result = GET_CURRENT;
         }
         return result;
     }
 
-    private void finishPutting(int index, boolean success) {
-        int result = success ? NOT_EMPTY : EMPTY;
-        levels.compareAndSet(index, PUTTING, result);
+    private boolean isAlreadyPut(long level, long l) {
+        return (l - level) == 1;
     }
 
-    private boolean startPutting(int index) {
-        return levels.compareAndSet(index, EMPTY, PUTTING);
+    private void finishPutting(int index, long level) {
+        boolean set = levels.compareAndSet(index, PUTTING, calcNextLevel(level));
+        assert set : "finishPutting fail";
     }
 
+    private boolean startPutting(int index, long level) {
+        return levels.compareAndSet(index, level, PUTTING);
+    }
+
+    @NotNull
     protected String _string() {
         int iMax = elements.length - 1;
         if (iMax == -1)
@@ -135,6 +137,7 @@ public abstract class AbstractConcurrentArrayQueue<E> extends AbstractArrayQueue
         }
     }
 
+    @Nullable
     protected E _get(int index) {
         return (E) elements[index];
     }
@@ -144,6 +147,7 @@ public abstract class AbstractConcurrentArrayQueue<E> extends AbstractArrayQueue
         return true;
     }
 
+    @NotNull
     protected E _retrieve(int index) {
         E e = _get(index);
         _insert(null, index);
@@ -155,6 +159,7 @@ public abstract class AbstractConcurrentArrayQueue<E> extends AbstractArrayQueue
         return true;
     }
 
+    @Nullable
     @Deprecated
     @SuppressWarnings("unchecked")
     protected final E get(int index) {
@@ -168,48 +173,48 @@ public abstract class AbstractConcurrentArrayQueue<E> extends AbstractArrayQueue
         return null;
     }
 
+    @Nullable
     @SuppressWarnings("unchecked")
     protected final E get(long oldHead, long currentHead) {
-        int index = calcIndex(currentHead);
+        final int index = calcIndex(currentHead);
+        final long level = calcNextLevel(calcLevel(currentHead));
         while (true) {
-            if (startPooling(index)) {
-                boolean success = false;
+            if (startPooling(index, level)) {
                 try {
-                    E e = _retrieve(index);
+                    final E e = _retrieve(index);
                     assert e != null;
                     setNextHead(oldHead, currentHead);
-                    success = true;
                     return e;
                 } finally {
-                    finishPooling(index, success);
+                    finishPooling(index, level);
                 }
-            } else {
-                if (failStartPooling(index)) return null;
+            } else if (stopTryPooling(index, level)) {
+                return null;
             }
         }
     }
 
-    private boolean failStartPooling(int index) {
+    private boolean stopTryPooling(int index, long level) {
         final long l = levels.get(index);
         if (l == PUTTING) {
-            //завершается вставка в ячейку
-            //continue;
-            //} else if (l == POOLING || l == EMPTY) {
-            //    //другой поток производит взятие
-            //    return null;
+            return false;
+        } else if (l == POOLING) {
+            return true;
+        } else if (level == l) {
+            return false;
         } else {
+            assert level < l : "invalid level :" + level + " " + l;
             return true;
         }
-        return false;
     }
 
-    private void finishPooling(int index, boolean success) {
-        int result = success ? EMPTY : NOT_EMPTY;
-        levels.compareAndSet(index, POOLING, result);
+    private void finishPooling(int index, long level) {
+        long nextLevel = calcNextLevel(level);
+        levels.compareAndSet(index, POOLING, nextLevel);
     }
 
-    private boolean startPooling(int index) {
-        return levels.compareAndSet(index, NOT_EMPTY, POOLING);
+    private boolean startPooling(int index, long level) {
+        return levels.compareAndSet(index, level, POOLING);
     }
 
     protected boolean setNextHead(long oldHead, long insertedHead) {
@@ -222,7 +227,7 @@ public abstract class AbstractConcurrentArrayQueue<E> extends AbstractArrayQueue
         return next(oldTail, insertedTail, sequence);
     }
 
-    private boolean next(long oldVal, long insertedVal, AtomicLong sequence) {
+    private boolean next(long oldVal, long insertedVal, @NotNull AtomicLong sequence) {
         assert insertedVal >= oldVal;
         long newValue = insertedVal + 1;
         assert oldVal < newValue;

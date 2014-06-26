@@ -1,5 +1,8 @@
 package buls.util.concurrent;
 
+import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
+
 import java.util.AbstractQueue;
 
 /**
@@ -32,6 +35,14 @@ public abstract class AbstractArrayQueue<E> extends AbstractQueue<E> {
         return (int) (counter % capacity());
     }
 
+    protected final long calcNextLevel(long level) {
+        return level + 1;
+    }
+
+    protected final long calcLevel(long counter) {
+        return counter / capacity() * 2;
+    }
+
     protected boolean checkBehindHead(long currentTail, long head) {
         if (head > currentTail) {
             //headSequence.set(currentTail);
@@ -40,12 +51,6 @@ public abstract class AbstractArrayQueue<E> extends AbstractQueue<E> {
             return false;
         }
     }
-
-//    protected final void checkHeadTailConsistency(long head, long tail) {
-//        if (head > tail) {
-//            throw new IllegalStateException("head <= tail, " + " head: " + head + ", tail: " + tail);
-//        }
-//    }
 
     protected final void yield() {
         Thread.yield();
@@ -56,7 +61,7 @@ public abstract class AbstractArrayQueue<E> extends AbstractQueue<E> {
     }
 
     @Override
-    public final boolean offer(E e) {
+    public final boolean offer(@Nullable E e) {
         if (e == null) {
             throw new IllegalArgumentException("element cannot be null");
         }
@@ -69,17 +74,11 @@ public abstract class AbstractArrayQueue<E> extends AbstractQueue<E> {
         final long head = getHead();
         long tail = getTail();
 
-        boolean result;
-        final long amount = tail - head;
-        if (amount < capacity) {
-            result = setElement(e, tail, head);
-        } else {
-            result = false;
-        }
-
-        return result;
+        final long amount = size(head, tail);
+        return (amount < capacity) && setElement(e, tail, head);
     }
 
+    @Nullable
     @Override
     public final E poll() {
         int capacity = capacity();
@@ -100,6 +99,7 @@ public abstract class AbstractArrayQueue<E> extends AbstractQueue<E> {
         return result;
     }
 
+    @NotNull
     @Override
     public E peek() {
         throw new UnsupportedOperationException();

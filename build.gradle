@@ -27,5 +27,6 @@ repositories {
 dependencies {
     apt 'org.openjdk.jmh:jmh-generator-annprocess:0.9'
     compile 'org.openjdk.jmh:jmh-core:0.9'
+    compile 'org.jetbrains:annotations:13.0'
     testCompile 'org.testng:testng:6.8.8'
 }

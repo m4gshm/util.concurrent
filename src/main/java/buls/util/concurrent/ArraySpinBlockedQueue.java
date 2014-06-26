@@ -1,5 +1,8 @@
 package buls.util.concurrent;
 
+import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
+
 import java.util.Collection;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.TimeUnit;
@@ -35,7 +38,7 @@ public class ArraySpinBlockedQueue<E> extends ConcurrentArrayQueue3<E> implement
     }
 
     @Override
-    public boolean offer(E e, long timeout, TimeUnit unit) throws InterruptedException {
+    public boolean offer(E e, long timeout, @NotNull TimeUnit unit) throws InterruptedException {
         long start = System.nanoTime();
         long end = start + unit.toNanos(timeout);
         while (System.nanoTime() < end) {
@@ -51,6 +54,7 @@ public class ArraySpinBlockedQueue<E> extends ConcurrentArrayQueue3<E> implement
         return false;
     }
 
+    @Nullable
     @Override
     public E take() throws InterruptedException {
         E result;
@@ -63,8 +67,9 @@ public class ArraySpinBlockedQueue<E> extends ConcurrentArrayQueue3<E> implement
         return result;
     }
 
+    @Nullable
     @Override
-    public E poll(long timeout, TimeUnit unit) throws InterruptedException {
+    public E poll(long timeout, @NotNull TimeUnit unit) throws InterruptedException {
         long start = System.nanoTime();
         long end = start + unit.toNanos(timeout);
         while (System.nanoTime() < end) {

@@ -17,6 +17,7 @@ import java.util.concurrent.atomic.AtomicLong;
 public abstract class BaseArrayQueueTest {
 
     public static final boolean WRITE_STATISTIC = true;
+    public static final int THRESHOLD = 1_000_000;
 
     @Test
     public void testInsertAnGetsInConcurrentMode0() {
@@ -24,7 +25,7 @@ public abstract class BaseArrayQueueTest {
         int attemptsPerInsert = 100;
         int capacity = 1;
         int getters = 1;
-        testQueueConcurrently(capacity, inserts, attemptsPerInsert, getters, "testInsertAnGetsInConcurrentMode0");
+        testQueueConcurrently(capacity, inserts, attemptsPerInsert, getters, "testInsertAnGetsInConcurrentMode0", THRESHOLD);
     }
 
     @Test
@@ -34,7 +35,7 @@ public abstract class BaseArrayQueueTest {
         int attemptsPerInsert = 2;
         int getters = 2;
 
-        testQueueConcurrently(capacity, inserts, attemptsPerInsert, getters, "testInsertAnGetsInConcurrentMode1");
+        testQueueConcurrently(capacity, inserts, attemptsPerInsert, getters, "testInsertAnGetsInConcurrentMode1", THRESHOLD);
     }
 
     @Test
@@ -44,7 +45,7 @@ public abstract class BaseArrayQueueTest {
         int capacity = inserts * attemptsPerInsert;
         int getters = 5;
 
-        testQueueConcurrently(capacity, inserts, attemptsPerInsert, getters, "testInsertAnGetsInConcurrentMode2");
+        testQueueConcurrently(capacity, inserts, attemptsPerInsert, getters, "testInsertAnGetsInConcurrentMode2", THRESHOLD);
     }
 
     @Test
@@ -54,7 +55,7 @@ public abstract class BaseArrayQueueTest {
         int capacity = inserts * attemptsPerInsert;
         int getters = 100;
 
-        testQueueConcurrently(capacity, inserts, attemptsPerInsert, getters, "testInsertAnGetsInConcurrentMode3");
+        testQueueConcurrently(capacity, inserts, attemptsPerInsert, getters, "testInsertAnGetsInConcurrentMode3", THRESHOLD);
     }
 
     @Test
@@ -64,7 +65,7 @@ public abstract class BaseArrayQueueTest {
         int capacity = 100;
         int getters = 5;
 
-        testQueueConcurrently(capacity, inserts, attemptsPerInsert, getters, "testInsertAnGetsInConcurrentMode4");
+        testQueueConcurrently(capacity, inserts, attemptsPerInsert, getters, "testInsertAnGetsInConcurrentMode4", THRESHOLD);
     }
 
     @Test
@@ -74,10 +75,10 @@ public abstract class BaseArrayQueueTest {
         int capacity = 100;
         int getters = 1;
 
-        testQueueConcurrently(capacity, inserts, attemptsPerInsert, getters, "testInsertAnGetsInConcurrentMode4");
+        testQueueConcurrently(capacity, inserts, attemptsPerInsert, getters, "testInsertAnGetsInConcurrentMode4", THRESHOLD * 2);
     }
 
-    protected void testQueueConcurrently(int capacity, int inserts, int attemptsPerInsert, int getters, String testName) {
+    protected void testQueueConcurrently(int capacity, int inserts, int attemptsPerInsert, int getters, String testName, int threshold) {
         ByteArrayOutputStream out = new ByteArrayOutputStream();
         PrintStream printStream = System.out;//new PrintStream(out);
         printStream.println("START " + testName);
@@ -111,7 +112,7 @@ public abstract class BaseArrayQueueTest {
 
         List<String> results = Collections.synchronizedList(new ArrayList<String>(inserts));
         for (int i = 0; i < getters; ++i) {
-            Runnable runner = createGetter(queue, attemptsPerGet, results, startTrigger, endTrigger, pollFailCounter);
+            Runnable runner = createGetter(queue, attemptsPerGet, results, startTrigger, endTrigger, pollFailCounter, threshold);
             Thread thread = new Thread(runner, "get-thread-" + i);
             threads.add(thread);
             thread.start();
@@ -165,7 +166,7 @@ public abstract class BaseArrayQueueTest {
     private Runnable createGetter(final Queue<String> queue, final int attemptsPerGet,
                                   final Collection<String> results,
                                   final CountDownLatch startTrigger, final CountDownLatch endTrigger,
-                                  final AtomicLong pollFailCounter) {
+                                  final AtomicLong pollFailCounter, final int threshold) {
         return new Runnable() {
 
             public void run() {
@@ -183,7 +184,7 @@ public abstract class BaseArrayQueueTest {
                             pollFailCounter.incrementAndGet();
                             Thread.yield();
                             fails++;
-                            if (fails > 100_000_000) {
+                            if (fails > threshold) {
                                 throw new IllegalStateException(fails + " fails");
                             }
                         } else {

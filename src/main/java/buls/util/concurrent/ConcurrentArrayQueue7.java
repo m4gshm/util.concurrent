@@ -1,5 +1,8 @@
 package buls.util.concurrent;
 
+import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
+
 import java.io.PrintStream;
 import java.util.concurrent.atomic.LongAdder;
 
@@ -27,7 +30,7 @@ public class ConcurrentArrayQueue7<E> extends AbstractConcurrentArrayQueue1<E> i
     }
 
     @Override
-    protected boolean setElement(final E e, final long tail, final long head) {
+    protected boolean setElement(@Nullable final E e, final long tail, final long head) {
         if (e == null) {
             throw new NullPointerException("e cannot be null");
         }
@@ -87,6 +90,7 @@ public class ConcurrentArrayQueue7<E> extends AbstractConcurrentArrayQueue1<E> i
         return amount >= capacity;
     }
 
+    @Nullable
     @Override
     protected E getElement(final long head, long tail) {
         long currentHead = head;
@@ -158,7 +162,7 @@ public class ConcurrentArrayQueue7<E> extends AbstractConcurrentArrayQueue1<E> i
         return result;
     }
 
-    public void printStatistic(PrintStream printStream) {
+    public void printStatistic(@NotNull PrintStream printStream) {
         if (writeStatistic) {
             printStream.println("success sets " + successSet);
             printStream.println("fail sets " + failSet);
