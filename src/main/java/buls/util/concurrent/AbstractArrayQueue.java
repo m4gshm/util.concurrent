@@ -21,6 +21,10 @@ public abstract class AbstractArrayQueue<E> extends AbstractQueue<E> {
     public final int size() {
         long tail = getTail();
         long head = getHead();
+        return size(head, tail);
+    }
+
+    protected final int size(long head, long tail) {
         return (int) (tail - head);
     }
 
@@ -37,11 +41,11 @@ public abstract class AbstractArrayQueue<E> extends AbstractQueue<E> {
         }
     }
 
-    protected final void checkHeadTailConsistency(long head, long tail) {
-        if (head > tail) {
-            throw new IllegalStateException("head <= tail, " + " head: " + head + ", tail: " + tail);
-        }
-    }
+//    protected final void checkHeadTailConsistency(long head, long tail) {
+//        if (head > tail) {
+//            throw new IllegalStateException("head <= tail, " + " head: " + head + ", tail: " + tail);
+//        }
+//    }
 
     protected final void yield() {
         Thread.yield();

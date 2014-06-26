@@ -5,7 +5,6 @@ package buls.util.concurrent;
  */
 public class ConcurrentArrayQueue2<E> extends ConcurrentArrayQueue<E> {
 
-
     public ConcurrentArrayQueue2(int capacity, boolean writeStatistic) {
         super(capacity, writeStatistic);
     }

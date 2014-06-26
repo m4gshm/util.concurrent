@@ -94,7 +94,7 @@ public class ConcurrentArrayQueue7<E> extends AbstractConcurrentArrayQueue1<E> i
         while (true) {
             E e;
             if ((e = get(head, currentHead, tail, ++attempts)) != null) {
-                checkHeadTailConsistency(currentHead, getTail());
+                //checkHeadTailConsistency(currentHead, getTail());
                 successGet();
                 return e;
             } else {

@@ -17,17 +17,17 @@ public abstract class AbstractConcurrentArrayQueue<E> extends AbstractArrayQueue
     public final static int GO_NEXT = 1;
     public final static int RECALCULATE = 2;
     public final static int TRY_AGAIN = 3;
-    protected final AtomicLongArray levels;
-    protected final AtomicLong tailSequence = new AtomicLong();
 
-    //protected final AtomicReferenceArray<Thread> threads;
+    protected final AtomicLongArray levels;
+
+    protected final AtomicLong tailSequence = new AtomicLong();
     protected final AtomicLong headSequence = new AtomicLong();
+
     private final Object[] elements;
 
     public AbstractConcurrentArrayQueue(int capacity) {
         this.elements = new Object[capacity];
         levels = new AtomicLongArray(capacity);
-        //threads = new AtomicReferenceArray<>(capacity);
     }
 
     @Override
@@ -77,7 +77,7 @@ public abstract class AbstractConcurrentArrayQueue<E> extends AbstractArrayQueue
                         _remove(e, index);
                         result = RECALCULATE;
                     } else {
-                        checkHeadTailConsistency(h, currentTail);
+                        //checkHeadTailConsistency(h, currentTail);
                         setNextTail(tail, currentTail);
                         success = true;
                         result = SUCCESS;

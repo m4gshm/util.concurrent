@@ -6,6 +6,7 @@ import java.util.concurrent.locks.ReentrantLock;
 /**
  * Created by Bulgakov Alex on 31.05.2014.
  */
+@Deprecated
 public class ConcurrentArrayQueue4<E> extends ConcurrentArrayQueue<E> {
 
     public static final int FAIL_SETS = 5;
@@ -47,7 +48,7 @@ public class ConcurrentArrayQueue4<E> extends ConcurrentArrayQueue<E> {
             boolean setNextTail = setNextTail(tail, currentTail);
             assert setNextTail;
 
-            checkHeadTailConsistency();
+            //checkHeadTailConsistency();
 
             successSet();
 
@@ -84,7 +85,7 @@ public class ConcurrentArrayQueue4<E> extends ConcurrentArrayQueue<E> {
 
             boolean setNextHead = setNextHead(head, currentHead);
             assert setNextHead;
-            checkHeadTailConsistency();
+            //checkHeadTailConsistency();
 
             successGet();
 
@@ -95,5 +96,12 @@ public class ConcurrentArrayQueue4<E> extends ConcurrentArrayQueue<E> {
 
         //throw new IllegalStateException("getElement");
     }
+
+    protected final void checkHeadTailConsistency() {
+        long h = getHead();
+        long t = getTail();
+        //checkHeadTailConsistency(h, t);
+    }
+
 
 }

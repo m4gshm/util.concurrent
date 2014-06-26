@@ -2,7 +2,7 @@ package buls.util.concurrent;
 
 import java.io.PrintStream;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.atomic.LongAdder;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 
@@ -14,13 +14,14 @@ public class ConcurrentArrayQueue3<E> extends ConcurrentArrayQueue<E> {
     public static final int SET_FAILS = 20;
     public static final int GET_FAILS = 20;
 
-    protected final AtomicLong getLocks = new AtomicLong();
-    protected final AtomicLong getLockRequests = new AtomicLong();
-    protected final AtomicLong setLocks = new AtomicLong();
-    protected final AtomicLong setLockRequests = new AtomicLong();
+    protected final LongAdder getLocks = new LongAdder();
+    protected final LongAdder getLockRequests = new LongAdder();
+    protected final LongAdder setLocks = new LongAdder();
+    protected final LongAdder setLockRequests = new LongAdder();
 
     private final Lock getLock = new ReentrantLock();
     private final Lock setLock = new ReentrantLock();
+
     private final AtomicBoolean needSetLock = new AtomicBoolean();
     private final AtomicBoolean needGetLock = new AtomicBoolean();
 
@@ -32,7 +33,6 @@ public class ConcurrentArrayQueue3<E> extends ConcurrentArrayQueue<E> {
     protected boolean setElement(final E e, final long tail, long head) {
         long currentTail = tail;
         int capacity = capacity();
-        int index = calcIndex(currentTail);
 
         long fails = 0;
         boolean hasLock = false;
@@ -40,165 +40,175 @@ public class ConcurrentArrayQueue3<E> extends ConcurrentArrayQueue<E> {
         boolean needLock = needLockFlag.get();
         boolean lockRequested = false;
         try {
-            if (needLock) {
-                setLock.lock();
-                startSetLock();
-                hasLock = true;
-
-                currentTail = computeTail(currentTail);
-                if (checkTailOverflow(currentTail, capacity)) {
-                    return false;
-                }
-                index = calcIndex(currentTail);
-            }
+            final Lock lock = setLock;
+            hasLock = acquireLock(needLock, lock);
             while (true) {
-                if (set(e, index)) {
-                    setNextTail(tail, currentTail);
-
+                final int res = set(e, tail, currentTail);
+                if (res == SUCCESS) {
                     successSet();
                     return true;
                 } else {
                     ++fails;
-                    if (hasLock && writeStatistic) {
-                        failLockedSet.increment();
-                    } else {
-                        failSet();
+
+                    failSet(hasLock);
+
+                    if (!hasLock) {
+                        hasLock = acquireOnFail(fails, SET_FAILS, needLockFlag, lock);
+                        lockRequested = hasLock;
                     }
 
-                    if (!hasLock && fails >= SET_FAILS) {
-                        //неудачник, просим блокировку
-                        setLock.lock();
-                        statSetLockRequest();
-                        startSetLock();
+                    currentTail = computeTail(currentTail, res);
 
-                        hasLock = true;
-                        //помечаем, что являемся реквестором лока
-                        lockRequested = true;
-
-                        boolean set = needLockFlag.compareAndSet(false, true);
-                        if (!set) {
-                            throw new IllegalStateException("cannot set needLock  true");
-                        }
-                    }
-
-                    currentTail = computeTail(currentTail);
-                    if (checkTailOverflow(currentTail, capacity)) {
+                    boolean overflow = checkTailOverflow(currentTail, capacity);
+                    if (overflow) {
                         return false;
                     }
-                    index = calcIndex(currentTail);
                 }
             }
         } finally {
-            if (lockRequested) {
-                boolean set = needLockFlag.compareAndSet(true, false);
-                if (!set) {
-                    throw new IllegalStateException("cannot set needSetLock false");
-                }
-            }
-
-            if (hasLock) {
-                setLock.unlock();
-            }
+            unmarkNeedLock(lockRequested, needLockFlag);
+            releaseLock(hasLock);
         }
-        //throw new IllegalStateException("setElement");
     }
+
 
     @Override
     protected E getElement(final long head, long tail) {
         long currentHead = head;
-        int index = calcIndex(currentHead);
-
         long fails = 0;
-
         boolean hasLock = false;
         AtomicBoolean needLockFlag = this.needGetLock;
         boolean needLock = needLockFlag.get();
         boolean lockRequested = false;
+        Lock lock = getLock;
         try {
-            if (needLock) {
-                getLock.lock();
-                statGetLock();
-                hasLock = true;
-
-                currentHead = computeHead(currentHead);
-                if (checkHeadOverflow(currentHead, getTail())) {
-                    return null;
-                }
-                index = calcIndex(currentHead);
-
-            }
+            hasLock = acquireLock(needLock, lock);
             while (true) {
                 E e;
-                if ((e = get(index)) != null) {
-                    setNextHead(head, currentHead);
+                if ((e = get(head, currentHead)) != null) {
                     successGet();
                     return e;
                 } else {
-                    //yield();
                     ++fails;
-
                     failGet();
-                    if (!hasLock && fails >= GET_FAILS) {
-                        getLock.lock();
-                        statGetLock();
-                        statGetLockRequest();
-                        hasLock = true;
-                        //помечаем, что являемся реквестором лока
-                        lockRequested = true;
 
-                        boolean set = needLockFlag.compareAndSet(false, true);
-                        if (!set) {
-                            throw new IllegalStateException("cannot set needGetLock true");
-                        }
+                    if (!hasLock) {
+                        hasLock = acquireOnFail(fails, GET_FAILS, needLockFlag, lock);
+                        lockRequested = hasLock;
                     }
 
-                    currentHead = computeHead(currentHead);
-                    if (checkHeadOverflow(currentHead, getTail())) {
+                    long t = getTail();
+                    currentHead = computeHead(currentHead, t);
+                    if (checkHeadOverflow(currentHead, t)) {
                         return null;
                     }
-                    index = calcIndex(currentHead);
                 }
             }
         } finally {
-            if (lockRequested) {
-                boolean set = needLockFlag.compareAndSet(true, false);
-                if (!set) {
-                    throw new IllegalStateException("cannot set needSetLock false");
-                }
-            }
+            unmarkNeedLock(lockRequested, needLockFlag);
 
             if (hasLock) {
-                getLock.unlock();
+                lock.unlock();
             }
         }
         //throw new IllegalStateException("getElement");
     }
 
+    private boolean acquireOnFail(long fails, int threshold, AtomicBoolean flag, Lock lock) {
+        boolean needLock = fails >= threshold;
+        boolean hasLock = acquireLock(needLock, lock);
+        if (hasLock) {
+            markNeedLock(flag);
+        }
+        return hasLock;
+    }
+
+    private void unmarkNeedLock(boolean lockRequested, AtomicBoolean flag) {
+        if (lockRequested) {
+            boolean set = flag.compareAndSet(true, false);
+            //if (!set) {
+            //    throw new IllegalStateException("cannot set needSetLock false");
+            //}
+        }
+    }
+
+    private void releaseLock(boolean hasLock) {
+        if (hasLock) {
+            setLock.unlock();
+        }
+    }
+
+    private void failSet(boolean hasLock) {
+        if (hasLock && writeStatistic) {
+            failLockedSet.increment();
+        } else {
+            failSet();
+        }
+    }
+
+    private void markNeedLock(AtomicBoolean flag) {
+        boolean set = flag.compareAndSet(false, true);
+        if (!set) {
+            throw new IllegalStateException("cannot set needLock  true");
+        }
+    }
+
+    private boolean acquireLock(boolean needLock, Lock lock) {
+        if (needLock) {
+            //неудачник, просим блокировку
+            lock.lock();
+
+            if (writeStatistic) {
+                if (lock == setLock) {
+                    statSetLockRequest();
+                    startSetLock();
+                } else if (lock == getLock) {
+                    statGetLockRequest();
+                    statGetLock();
+                }
+            }
+            return true;
+        }
+        return false;
+    }
+
+
+    @Deprecated
+    protected final long computeTail(long tail) {
+        long currentTail = getTail();
+        if (tail < currentTail) {
+            tail = currentTail;
+        } else {
+            tail++;
+        }
+        return tail;
+    }
+
     private void statGetLockRequest() {
-        if (writeStatistic) getLockRequests.incrementAndGet();
+        if (writeStatistic) getLockRequests.increment();
     }
 
     private void statGetLock() {
-        if (writeStatistic) getLocks.incrementAndGet();
+        if (writeStatistic) getLocks.increment();
     }
 
 
     private void statSetLockRequest() {
-        if (writeStatistic) setLockRequests.incrementAndGet();
+        if (writeStatistic) setLockRequests.increment();
     }
 
     private void startSetLock() {
-        if (writeStatistic) setLocks.incrementAndGet();
+        if (writeStatistic) setLocks.increment();
     }
 
     @Override
     public void printStatistic(PrintStream printStream) {
         if (writeStatistic) {
             super.printStatistic(printStream);
-            printStream.println("set locks " + setLocks.get());
-            printStream.println("set lock requests " + setLockRequests.get());
-            printStream.println("get locks " + getLocks.get());
-            printStream.println("get lock requests " + getLockRequests.get());
+            printStream.println("set locks " + setLocks);
+            printStream.println("set lock requests " + setLockRequests);
+            printStream.println("get locks " + getLocks);
+            printStream.println("get lock requests " + getLockRequests);
         }
     }
 
