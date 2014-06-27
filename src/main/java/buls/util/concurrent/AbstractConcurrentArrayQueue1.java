@@ -5,66 +5,41 @@ import org.jetbrains.annotations.Nullable;
 
 import java.util.Iterator;
 import java.util.concurrent.atomic.AtomicLong;
-import java.util.concurrent.atomic.AtomicReferenceArray;
-import java.util.concurrent.atomic.AtomicStampedReference;
+import java.util.concurrent.atomic.AtomicLongArray;
 
 /**
  * Created by Bulgakov Alex on 14.06.2014.
  */
 public abstract class AbstractConcurrentArrayQueue1<E> extends AbstractArrayQueue<E> {
-    public static final int EMPTY = 0;
-    public static final int NOT_EMPTY = 1;
+    public static final int PUTTING = -1;
+    public static final int POOLING = -2;
 
     public final static int SUCCESS = 0;
     public final static int GO_NEXT = 1;
-    public final static int RECALCULATE = 2;
+    public final static int GET_CURRENT = 2;
+    public final static int GET_CURRENT_GO_NEXT = 3;
+    public final static int TRY_AGAIN = 4;
 
-    protected final AtomicLong tailSequence = new AtomicLong(0);
-    protected final AtomicLong headSequence = new AtomicLong(0);
     @NotNull
-    protected final AtomicReferenceArray<AtomicStampedReference<Object>> elements;
+    protected final AtomicLongArray levels;
+
+    protected final AtomicLong tailSequence = new AtomicLong();
+    protected final AtomicLong headSequence = new AtomicLong();
+
+    @NotNull
+    private final Object[] elements;
 
     public AbstractConcurrentArrayQueue1(int capacity) {
-        this.elements = new AtomicReferenceArray<>(capacity);
-        for (int i = 0; i < capacity; ++i) {
-            elements.set(i, new AtomicStampedReference<>(null, 0));
-        }
-        //threads = new AtomicReferenceArray<>(capacity);
+        this.elements = new Object[capacity];
+        levels = new AtomicLongArray(capacity);
     }
 
     @NotNull
     @Override
     public String toString() {
-        StringBuilder b = new StringBuilder().append("h: ").append(getHead()).append(", t:").append(getTail()).append(", c:").append(capacity()).append("\n");
-        b.append("[");
-        for (int i = 0; i < elements.length(); ++i) {
-            if (i > 0) {
-                b.append(", ");
-            }
-            b.append(elements.get(i).getReference());
-
-        }
-        b.append("]\n[");
-        for (int i = 0; i < elements.length(); ++i) {
-            if (i > 0) {
-                b.append(", ");
-            }
-            b.append(elements.get(i).getStamp());
-
-        }
-        b.append("]");
-        return b.toString();
-
-    }
-
-    @Override
-    protected long getTail() {
-        return tailSequence.get();
-    }
-
-    @Override
-    protected long getHead() {
-        return headSequence.get();
+        return "h: " + headSequence + ", t:" + tailSequence + ", c:" + capacity()
+                + "\n" + _string()
+                + "\n" + levels.toString();
     }
 
     @NotNull
@@ -75,88 +50,194 @@ public abstract class AbstractConcurrentArrayQueue1<E> extends AbstractArrayQueu
 
     @Override
     public final int capacity() {
-        return elements.length();
+        return elements.length;
     }
 
-    protected final int set(final E e, final long tail, final long currentTail, final long head, final long attempt) {
+    @Override
+    protected final long getTail() {
+        return tailSequence.get();
+    }
+
+    @Override
+    protected final long getHead() {
+        return headSequence.get();
+    }
+
+    @Deprecated
+    protected final boolean set(E e, int index) {
+        return _insert(e, index);
+    }
+
+    protected final int set(final E e, final long tail, final long currentTail) {
         int index = calcIndex(currentTail);
+        long level = calcLevel(currentTail);
         while (true) {
-            AtomicStampedReference<Object> reference = elements.get(index);
-            if (reference.compareAndSet(null, e, EMPTY, NOT_EMPTY)) {
-                setNextTail(tail, currentTail);
-                return SUCCESS;
+            if (startPutting(index, level)) {
+                try {
+                    _insert(e, index);
+                    int result;
+
+                    setNextTail(tail, currentTail);
+
+                    result = SUCCESS;
+                    return result;
+                } finally {
+                    finishPutting(index, level);
+                }
             } else {
-                final long l = reference.getStamp();
-                if (l == NOT_EMPTY) {
-                    return GO_NEXT;
-                } else {
-                    assert l == EMPTY;
-                    //поток опоздал во всем
-                    return RECALCULATE;
+                int result = failPutting(index, level);
+                if (result != TRY_AGAIN) {
+                    return result;
                 }
             }
         }
-        //return false;
     }
 
+    private int failPutting(int index, long level) {
+        int result;
+        final long l = levels.get(index);
+        if (l == PUTTING) {
+            result = GO_NEXT;
+        } else if (l == POOLING) {
+            result = TRY_AGAIN;
+        } else if (isAlreadyPut(level, l)) {
+            result = GO_NEXT;
+        } else {
+            result = GET_CURRENT;
+        }
+        return result;
+    }
+
+    private boolean isAlreadyPut(long level, long l) {
+        return (l - level) == 1;
+    }
+
+    private void finishPutting(int index, long level) {
+        boolean set = levels.compareAndSet(index, PUTTING, calcNextLevel(level));
+        assert set : "finishPutting fail";
+    }
+
+    private boolean startPutting(int index, long level) {
+        return levels.compareAndSet(index, level, PUTTING);
+    }
+
+    @NotNull
+    protected String _string() {
+        int iMax = elements.length - 1;
+        if (iMax == -1)
+            return "[]";
+
+        StringBuilder b = new StringBuilder();
+        b.append('[');
+        for (int i = 0; ; i++) {
+            b.append(_get(i));
+            if (i == iMax)
+                return b.append(']').toString();
+            b.append(',').append(' ');
+        }
+    }
+
+    @Nullable
+    protected E _get(int index) {
+        return (E) elements[index];
+    }
+
+    protected boolean _insert(E e, int index) {
+        elements[index] = e;
+        return true;
+    }
+
+    @NotNull
+    protected E _retrieve(int index) {
+        E e = _get(index);
+        _insert(null, index);
+        return e;
+    }
+
+    protected boolean _remove(E e, int index) {
+        _insert(null, index);
+        return true;
+    }
+
+    @Nullable
+    @Deprecated
+    @SuppressWarnings("unchecked")
+    protected final E get(int index) {
+        E e = _get(index);
+        if (e != null) {
+            boolean set = _remove(e, index);
+            if (set) {
+                return e;
+            }
+        }
+        return null;
+    }
 
     @Nullable
     @SuppressWarnings("unchecked")
-    protected final E get(long oldHead, long currentHead, long tail, long attempt) {
-        int index = calcIndex(currentHead);
+    protected final E get(long oldHead, long currentHead) {
+        final int index = calcIndex(currentHead);
+        final long level = calcNextLevel(calcLevel(currentHead));
         while (true) {
-            //long l0 = levels.get(index);
-            final AtomicStampedReference<Object> reference = elements.get(index);
-            Object ref = reference.getReference();
-            if (ref == null) {
-                return null;
-            }
-            if (reference.compareAndSet(ref, null, NOT_EMPTY, EMPTY)) {
-                setNextHead(oldHead, currentHead);
-                return (E) ref;
-            } else {
+            if (startPooling(index, level)) {
+                try {
+                    final E e = _retrieve(index);
+                    assert e != null;
+                    setNextHead(oldHead, currentHead);
+                    return e;
+                } finally {
+                    finishPooling(index, level);
+                }
+            } else if (stopTryPooling(index, level)) {
                 return null;
             }
         }
-        //return null;
+    }
+
+    private boolean stopTryPooling(int index, long level) {
+        final long l = levels.get(index);
+        if (l == PUTTING) {
+            return false;
+        } else if (l == POOLING) {
+            return true;
+        } else if (level == l) {
+            return false;
+        } else {
+            assert level < l : "invalid level :" + level + " " + l;
+            return true;
+        }
+    }
+
+    private void finishPooling(int index, long level) {
+        long nextLevel = calcNextLevel(level);
+        levels.compareAndSet(index, POOLING, nextLevel);
+    }
+
+    private boolean startPooling(int index, long level) {
+        return levels.compareAndSet(index, level, POOLING);
     }
 
     protected boolean setNextHead(long oldHead, long insertedHead) {
-        if (insertedHead < oldHead) {
-            throw new RuntimeException("insertedHead < oldHead " + insertedHead + " < " + oldHead);
-        }
-        long newValue = insertedHead + 1;
-        assert oldHead < newValue;
         AtomicLong sequence = headSequence;
-        boolean set = sequence.compareAndSet(oldHead, newValue);
-        while (!set) {
-            long currentValue = sequence.get();
-            if (currentValue < newValue) {
-                set = sequence.compareAndSet(currentValue, newValue);
-            } else if (currentValue == newValue) {
-                break;
-            } else {
-                assert currentValue > newValue : oldHead + " " + currentValue + " " + newValue;
-                break;
-            }
-        }
-        return set;
+        return next(oldHead, insertedHead, sequence);
     }
 
     protected final boolean setNextTail(long oldTail, long insertedTail) {
-        long newValue = insertedTail + 1;
-        assert oldTail < newValue;
         AtomicLong sequence = tailSequence;
-        boolean set = sequence.compareAndSet(oldTail, newValue);
+        return next(oldTail, insertedTail, sequence);
+    }
+
+    private boolean next(long oldVal, long insertedVal, @NotNull AtomicLong sequence) {
+        assert insertedVal >= oldVal;
+        long newValue = insertedVal + 1;
+        assert oldVal < newValue;
+        boolean set = sequence.compareAndSet(oldVal, newValue);
         while (!set) {
             long currentValue = sequence.get();
             if (currentValue < newValue) {
                 set = sequence.compareAndSet(currentValue, newValue);
-            } else if (currentValue == newValue) {
-                return false;
             } else {
-                assert currentValue > newValue : oldTail + " " + currentValue + " " + newValue;
-                return true;
+                break;
             }
         }
         return set;

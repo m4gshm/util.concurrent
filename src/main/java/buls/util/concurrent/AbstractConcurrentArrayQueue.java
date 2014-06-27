@@ -11,13 +11,12 @@ import java.util.concurrent.atomic.AtomicLongArray;
  * Created by Bulgakov Alex on 14.06.2014.
  */
 public abstract class AbstractConcurrentArrayQueue<E> extends AbstractArrayQueue<E> {
-    public static final int POOLING = -2;
     public static final int PUTTING = -1;
+    public static final int POOLING = -2;
 
     public final static int SUCCESS = 0;
     public final static int GO_NEXT = 1;
     public final static int GET_CURRENT = 2;
-    public final static int GET_CURRENT_GO_NEXT = 3;
     public final static int TRY_AGAIN = 4;
 
     @NotNull

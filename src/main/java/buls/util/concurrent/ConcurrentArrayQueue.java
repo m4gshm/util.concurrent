@@ -54,11 +54,7 @@ public class ConcurrentArrayQueue<E> extends AbstractConcurrentArrayQueue<E> imp
             currentTail++;
         } else {
             currentTail = getTail();
-            if (calculateType == GET_CURRENT_GO_NEXT) {
-                currentTail++;
-            } else {
-                assert calculateType == GET_CURRENT;
-            }
+            assert calculateType == GET_CURRENT;
         }
         return currentTail;
     }
