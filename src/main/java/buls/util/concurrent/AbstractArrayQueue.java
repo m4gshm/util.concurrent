@@ -72,7 +72,7 @@ public abstract class AbstractArrayQueue<E> extends AbstractQueue<E> {
         }
 
         final long head = getHead();
-        long tail = getTail();
+        final long tail = getTail();
 
         final long amount = size(head, tail);
         return (amount < capacity) && setElement(e, tail, head);
@@ -81,22 +81,15 @@ public abstract class AbstractArrayQueue<E> extends AbstractQueue<E> {
     @Nullable
     @Override
     public final E poll() {
-        int capacity = capacity();
+        final int capacity = capacity();
         if (capacity == 0) {
             return null;
         }
 
-        long tail = getTail();
-        long head = getHead();
+        final long tail = getTail();
+        final long head = getHead();
 
-        E result;
-
-        if (head < tail) {
-            result = getElement(head, tail);
-        } else {
-            result = null;
-        }
-        return result;
+        return (head < tail) ? getElement(head, tail) : null;
     }
 
     @NotNull

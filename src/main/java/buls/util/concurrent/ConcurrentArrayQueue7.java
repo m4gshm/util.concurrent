@@ -60,15 +60,6 @@ public class ConcurrentArrayQueue7<E> extends AbstractConcurrentArrayQueue1<E> i
         //throw new IllegalStateException("setElement");
     }
 
-    @Override
-    protected final boolean checkBehindHead(long currentTail, long head) {
-        final boolean result = super.checkBehindHead(currentTail, head);
-        if (writeStatistic && result) {
-            setBehindHead.increment();
-        }
-        return result;
-    }
-
     protected long computeTail(long currentTail, int calculateType) {
         return getTail();
 //        if (calculateType == GO_NEXT) {

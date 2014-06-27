@@ -20,8 +20,6 @@ public class ConcurrentArrayQueue<E> extends AbstractConcurrentArrayQueue<E> imp
     protected final LongAdder failNextTail = new LongAdder();
     protected final LongAdder failNextHead = new LongAdder();
 
-    protected final LongAdder setBehindHead = new LongAdder();
-
     protected final boolean writeStatistic;
 
     public ConcurrentArrayQueue(int capacity, boolean writeStatistic) {
@@ -51,15 +49,6 @@ public class ConcurrentArrayQueue<E> extends AbstractConcurrentArrayQueue<E> imp
         }
     }
 
-    @Override
-    protected final boolean checkBehindHead(long currentTail, long head) {
-        final boolean result = super.checkBehindHead(currentTail, head);
-        if (writeStatistic && result) {
-            setBehindHead.increment();
-        }
-        return result;
-    }
-
     protected long computeTail(long currentTail, int calculateType) {
         if (calculateType == GO_NEXT) {
             currentTail++;
@@ -86,7 +75,6 @@ public class ConcurrentArrayQueue<E> extends AbstractConcurrentArrayQueue<E> imp
         while (true) {
             E e;
             if ((e = get(head, currentHead)) != null) {
-                //checkHeadTailConsistency(currentHead, getTail());
                 successGet();
                 return e;
             } else {
@@ -118,11 +106,7 @@ public class ConcurrentArrayQueue<E> extends AbstractConcurrentArrayQueue<E> imp
     }
 
     protected final boolean checkHeadOverflow(long newHead, long tail) {
-        if (newHead >= tail) {
-            //assert newHead == tail: newHead +" <> " + tail;
-            return true;
-        }
-        return false;
+        return newHead >= tail;
     }
 
     protected long computeHead(long head) {
@@ -155,8 +139,6 @@ public class ConcurrentArrayQueue<E> extends AbstractConcurrentArrayQueue<E> imp
 
             printStream.println("fail next tail " + failNextTail);
             printStream.println("fail next head " + failNextHead);
-
-            printStream.println("set behind head " + setBehindHead);
         }
     }
 }
