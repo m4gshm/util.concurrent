@@ -10,6 +10,9 @@ import java.util.AbstractQueue;
  */
 public abstract class AbstractArrayQueue<E> extends AbstractQueue<E> {
 
+    public static final int LEVEL_FACTOR = 2;
+    public static final int NEXT_LEVEL_SUMMAND = 1;
+
     public abstract int capacity();
 
     protected abstract long getTail();
@@ -35,21 +38,16 @@ public abstract class AbstractArrayQueue<E> extends AbstractQueue<E> {
         return (int) (counter % capacity());
     }
 
-    protected final long calcNextLevel(long level) {
-        return level + 1;
+    protected final long computeNextLevel(long level) {
+        return level + NEXT_LEVEL_SUMMAND;
     }
 
-    protected final long calcLevel(long counter) {
-        return counter / capacity() * 2;
+    protected final long computeLevel(long counter) {
+        return counter / capacity() * LEVEL_FACTOR;
     }
 
-    protected boolean checkBehindHead(long currentTail, long head) {
-        if (head > currentTail) {
-            //headSequence.set(currentTail);
-            return true;
-        } else {
-            return false;
-        }
+    protected long computeIteration(long counter) {
+        return counter / capacity() + 1;
     }
 
     protected final void yield() {
@@ -71,8 +69,8 @@ public abstract class AbstractArrayQueue<E> extends AbstractQueue<E> {
             return false;
         }
 
-        final long head = getHead();
         final long tail = getTail();
+        final long head = getHead();
 
         final long amount = size(head, tail);
         return (amount < capacity) && setElement(e, tail, head);

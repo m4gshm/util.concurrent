@@ -7,7 +7,7 @@ import java.util.concurrent.Semaphore;
 /**
  * Created by Alex on 22.06.2014.
  */
-public class ConcurrentArrayQueue5<E> extends ConcurrentArrayQueue7<E> {
+public class ConcurrentArrayQueue5<E> extends ConcurrentArrayQueue<E> {
     @NotNull
     private final Semaphore setSemaphore;
 

@@ -12,7 +12,7 @@ import java.util.concurrent.locks.LockSupport;
  * Created by Bulgakov Alex on 31.05.2014.
  */
 @Deprecated
-public class ArraySpinBlockedQueue<E> extends ConcurrentArrayQueue3<E> implements BlockingQueue<E> {
+public class ArraySpinBlockedQueue<E> extends ConcurrentArrayQueueWithLockByDemand<E> implements BlockingQueue<E> {
     private final boolean yield;
 
     public ArraySpinBlockedQueue(int capacity, boolean yield, boolean writeStatistic) {

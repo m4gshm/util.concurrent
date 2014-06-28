@@ -4,202 +4,158 @@ import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 import java.io.PrintStream;
-import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.LongAdder;
-import java.util.concurrent.locks.Lock;
-import java.util.concurrent.locks.ReentrantLock;
 
 /**
  * Created by Bulgakov Alex on 31.05.2014.
  */
-public class ConcurrentArrayQueue3<E> extends ConcurrentArrayQueue<E> {
+public class ConcurrentArrayQueue3<E> extends AbstractConcurrentArrayQueue2<E> implements QueueWithStatistic<E> {
 
-    public static final int SET_FAILS = 20;
-    public static final int GET_FAILS = 20;
+    protected final LongAdder successSet = new LongAdder();
+    protected final LongAdder failSet = new LongAdder();
+    protected final LongAdder failLockedSet = new LongAdder();
+    protected final LongAdder successGet = new LongAdder();
+    protected final LongAdder failGet = new LongAdder();
 
-    protected final LongAdder getLocks = new LongAdder();
-    protected final LongAdder getLockRequests = new LongAdder();
-    protected final LongAdder setLocks = new LongAdder();
-    protected final LongAdder setLockRequests = new LongAdder();
+    protected final LongAdder failNextTail = new LongAdder();
+    protected final LongAdder failNextHead = new LongAdder();
 
-    private final Lock getLock = new ReentrantLock();
-    private final Lock setLock = new ReentrantLock();
-
-    private final AtomicBoolean needSetLock = new AtomicBoolean();
-    private final AtomicBoolean needGetLock = new AtomicBoolean();
+    protected final boolean writeStatistic;
 
     public ConcurrentArrayQueue3(int capacity, boolean writeStatistic) {
-        super(capacity, writeStatistic);
+        super(capacity);
+        this.writeStatistic = writeStatistic;
     }
 
     @Override
-    protected boolean setElement(@NotNull final E e, final long tail, long head) {
+    protected boolean setElement(@NotNull final E e, final long tail, final long head) {
         long currentTail = tail;
-        int capacity = capacity();
+        final int capacity = capacity();
 
-        long fails = 0;
-        boolean hasLock = false;
-        AtomicBoolean needLockFlag = this.needSetLock;
-        boolean needLock = needLockFlag.get();
-        boolean lockRequested = false;
-        try {
-            final Lock lock = setLock;
-            hasLock = acquireLock(needLock, lock);
-            while (true) {
-                final int res = set(e, tail, currentTail);
-                if (res == SUCCESS) {
-                    successSet();
-                    return true;
+        while (true) {
+            final int res = set(e, tail, currentTail);
+            if (res == SUCCESS) {
+                successSet();
+                return true;
+            } else {
+                failSet();
+                currentTail = computeTail(currentTail, res);
+
+                boolean overflow;
+                long headIteration = getHeadIteration();
+                long tailIteration = computeIteration(currentTail);
+                if (headIteration - tailIteration == 1) {
+                    overflow = false;
                 } else {
-                    ++fails;
-
-                    failSet(hasLock);
-
-                    if (!hasLock) {
-                        hasLock = acquireOnFail(fails, SET_FAILS, needLockFlag, lock);
-                        lockRequested = hasLock;
-                    }
-
-                    currentTail = computeTail(currentTail, res);
-
-                    boolean overflow = checkTailOverflow(currentTail, capacity);
-                    if (overflow) {
-                        return false;
-                    }
+                    overflow = checkTailOverflow(currentTail, capacity);
+                }
+                if (overflow) {
+                    return false;
                 }
             }
-        } finally {
-            unmarkNeedLock(lockRequested, needLockFlag);
-            releaseLock(hasLock);
         }
+    }
+
+    protected long computeTail(long currentTail, int calculateType) {
+        if (calculateType == GO_NEXT) {
+            currentTail++;
+        } else {
+            currentTail = getTail();
+            assert calculateType == GET_CURRENT;
+        }
+        return currentTail;
+    }
+
+    protected final boolean checkTailOverflow(long tailForInserting, int capacity) {
+        long amount = tailForInserting - getHead();
+        return amount > capacity;
     }
 
     @Nullable
     @Override
     protected E getElement(final long head, long tail) {
         long currentHead = head;
-        long fails = 0;
-        boolean hasLock = false;
-        AtomicBoolean needLockFlag = this.needGetLock;
-        boolean needLock = needLockFlag.get();
-        boolean lockRequested = false;
-        Lock lock = getLock;
-        try {
-            hasLock = acquireLock(needLock, lock);
-            while (true) {
-                E e;
-                if ((e = get(head, currentHead)) != null) {
-                    successGet();
-                    return e;
+        while (true) {
+            E e;
+            if ((e = get(head, currentHead)) != null) {
+                successGet();
+                return e;
+            } else {
+                failGet();
+
+                currentHead = computeHead(currentHead);
+
+                boolean overflow;
+                long tailIteration = getTailIteration();
+                long headIteration = computeIteration(currentHead);
+                if (tailIteration - headIteration == 1) {
+                    overflow = false;
                 } else {
-                    ++fails;
-                    failGet();
-
-                    if (!hasLock) {
-                        hasLock = acquireOnFail(fails, GET_FAILS, needLockFlag, lock);
-                        lockRequested = hasLock;
-                    }
-
                     long t = getTail();
-                    currentHead = computeHead(currentHead);
-                    if (checkHeadOverflow(currentHead, t)) {
-                        return null;
-                    }
+                    overflow = checkHeadOverflow(currentHead, t);
+                }
+
+                if (overflow) {
+                    return null;
                 }
             }
-        } finally {
-            unmarkNeedLock(lockRequested, needLockFlag);
-
-            if (hasLock) {
-                lock.unlock();
-            }
         }
     }
 
-    private boolean acquireOnFail(long fails, int threshold, @NotNull AtomicBoolean flag, @NotNull Lock lock) {
-        boolean needLock = fails >= threshold;
-        boolean hasLock = acquireLock(needLock, lock);
-        if (hasLock) {
-            markNeedLock(flag);
-        }
-        return hasLock;
+    protected final void failGet() {
+        if (writeStatistic) failGet.increment();
     }
 
-    private void unmarkNeedLock(boolean lockRequested, @NotNull AtomicBoolean flag) {
-        if (lockRequested) {
-            boolean set = flag.compareAndSet(true, false);
-            //if (!set) {
-            //    throw new IllegalStateException("cannot set needSetLock false");
-            //}
-        }
+    protected final void successGet() {
+        if (writeStatistic) successGet.increment();
     }
 
-    private void releaseLock(boolean hasLock) {
-        if (hasLock) {
-            setLock.unlock();
-        }
+    protected final void failSet() {
+        if (writeStatistic) failSet.increment();
     }
 
-    private void failSet(boolean hasLock) {
-        if (hasLock && writeStatistic) {
-            failLockedSet.increment();
+    protected final void successSet() {
+        if (writeStatistic) successSet.increment();
+    }
+
+    protected final boolean checkHeadOverflow(long newHead, long tail) {
+        return newHead >= tail;
+    }
+
+    protected long computeHead(long head) {
+        final long h = getHead();
+        if (head < h) {
+            head = h;
         } else {
-            failSet();
+            head++;
         }
+        return head;
     }
 
-    private void markNeedLock(@NotNull AtomicBoolean flag) {
-        boolean set = flag.compareAndSet(false, true);
-        if (!set) {
-            throw new IllegalStateException("cannot set needLock  true");
+    @Override
+    protected final boolean setNextHead(long oldHead, long currentHead) {
+        boolean result = super.setNextHead(oldHead, currentHead);
+        if (!result) {
+            failNextHead.increment();
         }
-    }
-
-    private boolean acquireLock(boolean needLock, @NotNull Lock lock) {
-        if (needLock) {
-            //неудачник, просим блокировку
-            lock.lock();
-
-            if (writeStatistic) {
-                if (lock == setLock) {
-                    statSetLockRequest();
-                    startSetLock();
-                } else if (lock == getLock) {
-                    statGetLockRequest();
-                    statGetLock();
-                }
-            }
-            return true;
-        }
-        return false;
-    }
-
-    private void statGetLockRequest() {
-        if (writeStatistic) getLockRequests.increment();
-    }
-
-    private void statGetLock() {
-        if (writeStatistic) getLocks.increment();
-    }
-
-
-    private void statSetLockRequest() {
-        if (writeStatistic) setLockRequests.increment();
-    }
-
-    private void startSetLock() {
-        if (writeStatistic) setLocks.increment();
+        return result;
     }
 
     @Override
     public void printStatistic(@NotNull PrintStream printStream) {
         if (writeStatistic) {
-            super.printStatistic(printStream);
-            printStream.println("set locks " + setLocks);
-            printStream.println("set lock requests " + setLockRequests);
-            printStream.println("get locks " + getLocks);
-            printStream.println("get lock requests " + getLockRequests);
+            printStream.println("success sets " + successSet);
+            printStream.println("fail sets " + failSet);
+            printStream.println("fail locked sets " + failLockedSet);
+            printStream.println("success gets " + successGet);
+            printStream.println("fail gets " + failGet);
+
+            printStream.println("fail next tail " + failNextTail);
+            printStream.println("fail next head " + failNextHead);
+
+            printStream.println("tailOffset " + tailOffset);
+            printStream.println("headOffset " + headOffset);
+            printStream.println("tail - head offsets = " + (tailOffset - headOffset));
         }
     }
-
 }

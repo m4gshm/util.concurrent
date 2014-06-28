@@ -1,6 +1,5 @@
 package buls.util.concurrent;
 
-
 import org.testng.annotations.Test;
 
 /**
@@ -13,4 +12,5 @@ public class ConcurrentArrayQueue3Test extends BaseArrayQueueTest {
     protected ConcurrentArrayQueue3<String> createQueue(int capacity, boolean writeStatistic) {
         return new ConcurrentArrayQueue3<>(capacity, writeStatistic);
     }
+
 }

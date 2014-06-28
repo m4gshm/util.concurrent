@@ -3,6 +3,7 @@ package buls.util.concurrent;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
+import java.util.Arrays;
 import java.util.Iterator;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicLongArray;
@@ -17,14 +18,17 @@ public abstract class AbstractConcurrentArrayQueue1<E> extends AbstractArrayQueu
     public final static int SUCCESS = 0;
     public final static int GO_NEXT = 1;
     public final static int GET_CURRENT = 2;
-    public final static int GET_CURRENT_GO_NEXT = 3;
     public final static int TRY_AGAIN = 4;
-
-    @NotNull
-    protected final AtomicLongArray levels;
 
     protected final AtomicLong tailSequence = new AtomicLong();
     protected final AtomicLong headSequence = new AtomicLong();
+
+    protected final AtomicLong headIteration = new AtomicLong(1);
+    protected final AtomicLong tailIteration = new AtomicLong(1);
+
+
+    @NotNull
+    protected final AtomicLongArray levels;
 
     @NotNull
     private final Object[] elements;
@@ -63,6 +67,15 @@ public abstract class AbstractConcurrentArrayQueue1<E> extends AbstractArrayQueu
         return headSequence.get();
     }
 
+
+    protected final long getTailIteration() {
+        return tailIteration.get();
+    }
+
+    protected final long getHeadIteration() {
+        return headIteration.get();
+    }
+
     @Deprecated
     protected final boolean set(E e, int index) {
         return _insert(e, index);
@@ -70,7 +83,7 @@ public abstract class AbstractConcurrentArrayQueue1<E> extends AbstractArrayQueu
 
     protected final int set(final E e, final long tail, final long currentTail) {
         int index = calcIndex(currentTail);
-        long level = calcLevel(currentTail);
+        long level = computeLevel(currentTail);
         while (true) {
             if (startPutting(index, level)) {
                 try {
@@ -86,6 +99,9 @@ public abstract class AbstractConcurrentArrayQueue1<E> extends AbstractArrayQueu
                 }
             } else {
                 int result = failPutting(index, level);
+
+                assert Arrays.asList(GO_NEXT, TRY_AGAIN, GET_CURRENT).contains(result);
+
                 if (result != TRY_AGAIN) {
                     return result;
                 }
@@ -113,7 +129,7 @@ public abstract class AbstractConcurrentArrayQueue1<E> extends AbstractArrayQueu
     }
 
     private void finishPutting(int index, long level) {
-        boolean set = levels.compareAndSet(index, PUTTING, calcNextLevel(level));
+        boolean set = levels.compareAndSet(index, PUTTING, computeNextLevel(level));
         assert set : "finishPutting fail";
     }
 
@@ -177,7 +193,7 @@ public abstract class AbstractConcurrentArrayQueue1<E> extends AbstractArrayQueu
     @SuppressWarnings("unchecked")
     protected final E get(long oldHead, long currentHead) {
         final int index = calcIndex(currentHead);
-        final long level = calcNextLevel(calcLevel(currentHead));
+        final long level = computeNextLevel(computeLevel(currentHead));
         while (true) {
             if (startPooling(index, level)) {
                 try {
@@ -209,7 +225,7 @@ public abstract class AbstractConcurrentArrayQueue1<E> extends AbstractArrayQueu
     }
 
     private void finishPooling(int index, long level) {
-        long nextLevel = calcNextLevel(level);
+        long nextLevel = computeNextLevel(level);
         levels.compareAndSet(index, POOLING, nextLevel);
     }
 
@@ -218,28 +234,46 @@ public abstract class AbstractConcurrentArrayQueue1<E> extends AbstractArrayQueu
     }
 
     protected boolean setNextHead(long oldHead, long insertedHead) {
-        AtomicLong sequence = headSequence;
-        return next(oldHead, insertedHead, sequence);
+        return next(oldHead, insertedHead, headSequence, headIteration);
     }
 
     protected final boolean setNextTail(long oldTail, long insertedTail) {
-        AtomicLong sequence = tailSequence;
-        return next(oldTail, insertedTail, sequence);
+        return next(oldTail, insertedTail, tailSequence, tailIteration);
     }
 
-    private boolean next(long oldVal, long insertedVal, @NotNull AtomicLong sequence) {
+    private boolean next(long oldVal, long insertedVal, @NotNull AtomicLong sequence, @NotNull AtomicLong iteration) {
         assert insertedVal >= oldVal;
         long newValue = insertedVal + 1;
         assert oldVal < newValue;
-        boolean set = sequence.compareAndSet(oldVal, newValue);
+
+        long currentIter = iteration.get();
+        long nextIter = computeIteration(insertedVal);
+
+        boolean iterated = false;
+        boolean goNextIter = currentIter < nextIter;
+        if (goNextIter) {
+            assert nextIter - currentIter == 1 : "next iteration fail oldVal " + oldVal + ", newVal " + newValue;
+            iterated = cas(iteration, currentIter, nextIter);
+        } else {
+            assert currentIter == nextIter : "check iteration fail oldVal " + oldVal + ", newVal " + newValue;
+        }
+        if (goNextIter && !iterated) {
+            //todo нужна статистика!!!
+            return false;
+        }
+        boolean set = cas(sequence, oldVal, newValue);
         while (!set) {
             long currentValue = sequence.get();
             if (currentValue < newValue) {
-                set = sequence.compareAndSet(currentValue, newValue);
+                set = cas(sequence, currentValue, newValue);
             } else {
                 break;
             }
         }
         return set;
+    }
+
+    private boolean cas(AtomicLong iteration, long currentIter, long nextIter) {
+        return iteration.compareAndSet(currentIter, nextIter);
     }
 }

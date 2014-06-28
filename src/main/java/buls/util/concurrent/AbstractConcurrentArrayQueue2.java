@@ -2,16 +2,18 @@ package buls.util.concurrent;
 
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
+import sun.misc.Contended;
+import sun.misc.Unsafe;
 
+import java.lang.reflect.Field;
 import java.util.Arrays;
 import java.util.Iterator;
-import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicLongArray;
 
 /**
  * Created by Bulgakov Alex on 14.06.2014.
  */
-public abstract class AbstractConcurrentArrayQueue<E> extends AbstractArrayQueue<E> {
+public abstract class AbstractConcurrentArrayQueue2<E> extends AbstractArrayQueue<E> {
     public static final int PUTTING = -1;
     public static final int POOLING = -2;
 
@@ -19,17 +21,49 @@ public abstract class AbstractConcurrentArrayQueue<E> extends AbstractArrayQueue
     public final static int GO_NEXT = 1;
     public final static int GET_CURRENT = 2;
     public final static int TRY_AGAIN = 4;
+    protected static final long tailOffset;
+    protected static final long headOffset;
+    protected static final long tailIterationOffset;
+    protected static final long headIterationOffset;
 
+    static {
+        try {
+            Field getUnsafe = Unsafe.class.getDeclaredField("theUnsafe");
+            getUnsafe.setAccessible(true);
+            unsafe = (Unsafe) getUnsafe.get(null);
+        } catch (NoSuchFieldException | IllegalAccessException e) {
+            throw new Error(e);
+        }
+        try {
+            tailOffset = unsafe.objectFieldOffset
+                    (AbstractConcurrentArrayQueue2.class.getDeclaredField("tailSequence"));
+            headOffset = unsafe.objectFieldOffset
+                    (AbstractConcurrentArrayQueue2.class.getDeclaredField("headSequence"));
+            tailIterationOffset = unsafe.objectFieldOffset
+                    (AbstractConcurrentArrayQueue2.class.getDeclaredField("tailIteration"));
+            headIterationOffset = unsafe.objectFieldOffset
+                    (AbstractConcurrentArrayQueue2.class.getDeclaredField("headIteration"));
+        } catch (Exception ex) {
+            throw new Error(ex);
+        }
+
+    }
+
+    private static final Unsafe unsafe;
     @NotNull
     protected final AtomicLongArray levels;
-
-    protected final AtomicLong tailSequence = new AtomicLong();
-    protected final AtomicLong headSequence = new AtomicLong();
-
     @NotNull
     private final Object[] elements;
+    @Contended
+    protected volatile long tailSequence = 0;
+    @Contended
+    protected volatile long headSequence = 0;
+    @Contended
+    protected volatile long tailIteration = 1;
+    @Contended
+    protected volatile long headIteration = 1;
 
-    public AbstractConcurrentArrayQueue(int capacity) {
+    public AbstractConcurrentArrayQueue2(int capacity) {
         this.elements = new Object[capacity];
         levels = new AtomicLongArray(capacity);
     }
@@ -76,12 +110,21 @@ public abstract class AbstractConcurrentArrayQueue<E> extends AbstractArrayQueue
 
     @Override
     protected final long getTail() {
-        return tailSequence.get();
+        return tailSequence;
     }
 
     @Override
     protected final long getHead() {
-        return headSequence.get();
+        return headSequence;
+    }
+
+
+    protected final long getTailIteration() {
+        return tailIteration;
+    }
+
+    protected final long getHeadIteration() {
+        return headIteration;
     }
 
     @Deprecated
@@ -213,7 +256,7 @@ public abstract class AbstractConcurrentArrayQueue<E> extends AbstractArrayQueue
     }
 
     private boolean stopTryPooling(int index, long level) {
-        final long l = _level(index);
+        final long l = levels.get(index);
         if (l == PUTTING) {
             return false;
         } else if (l == POOLING) {
@@ -228,31 +271,47 @@ public abstract class AbstractConcurrentArrayQueue<E> extends AbstractArrayQueue
 
     private void finishPooling(int index, long level) {
         long nextLevel = computeNextLevel(level);
-        boolean set = _levelCas(index, POOLING, nextLevel);
+        boolean set = levels.compareAndSet(index, POOLING, nextLevel);
         assert set : "finishPooling fail";
     }
 
     private boolean startPooling(int index, long level) {
-        return _levelCas(index, level, POOLING);
+        return levels.compareAndSet(index, level, POOLING);
     }
 
     protected boolean setNextHead(long oldHead, long insertedHead) {
-        return next(oldHead, insertedHead, headSequence);
+        return next(oldHead, insertedHead, headOffset, headIterationOffset);
     }
 
     protected final boolean setNextTail(long oldTail, long insertedTail) {
-        return next(oldTail, insertedTail, tailSequence);
+        return next(oldTail, insertedTail, tailOffset, tailIterationOffset);
     }
 
-    private boolean next(long oldVal, long insertedVal, @NotNull AtomicLong sequence) {
+    private boolean next(long oldVal, long insertedVal, long sequenceOffset, long iteratorOffset) {
         assert insertedVal >= oldVal;
         long newValue = insertedVal + 1;
         assert oldVal < newValue;
-        boolean set = cas(sequence, oldVal, newValue);
+
+        long currentIter = getLong(iteratorOffset);
+        long nextIter = computeIteration(insertedVal);
+
+        boolean iterated = false;
+        boolean goNextIter = currentIter < nextIter;
+        if (goNextIter) {
+            assert nextIter - currentIter == 1 : "next iteration fail oldVal " + oldVal + ", newVal " + newValue;
+            iterated = cas(iteratorOffset, currentIter, nextIter);
+        } else {
+            assert currentIter == nextIter : "check iteration fail oldVal " + oldVal + ", newVal " + newValue;
+        }
+        if (goNextIter && !iterated) {
+            //todo нужна статистика!!!
+            return false;
+        }
+        boolean set = cas(sequenceOffset, oldVal, newValue);
         while (!set) {
-            long currentValue = sequence.get();
+            long currentValue = getLong(sequenceOffset);
             if (currentValue < newValue) {
-                set = cas(sequence, currentValue, newValue);
+                set = cas(sequenceOffset, currentValue, newValue);
             } else {
                 break;
             }
@@ -260,7 +319,11 @@ public abstract class AbstractConcurrentArrayQueue<E> extends AbstractArrayQueue
         return set;
     }
 
-    private boolean cas(AtomicLong sequence, long expected, long update) {
-        return sequence.compareAndSet(expected, update);
+    private long getLong(long offset) {
+        return unsafe.getLong(this, offset);
+    }
+
+    private boolean cas(long valueOffset, long expectedValue, long newValue) {
+        return unsafe.compareAndSwapLong(this, valueOffset, expectedValue, newValue);
     }
 }
