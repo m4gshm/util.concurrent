@@ -26,6 +26,8 @@ public abstract class AbstractConcurrentArrayQueue2<E> extends AbstractArrayQueu
     protected static final long tailIterationOffset;
     protected static final long headIterationOffset;
 
+    private static final Unsafe unsafe;
+
     static {
         try {
             Field getUnsafe = Unsafe.class.getDeclaredField("theUnsafe");
@@ -49,7 +51,6 @@ public abstract class AbstractConcurrentArrayQueue2<E> extends AbstractArrayQueu
 
     }
 
-    private static final Unsafe unsafe;
     @NotNull
     protected final AtomicLongArray levels;
     @NotNull
