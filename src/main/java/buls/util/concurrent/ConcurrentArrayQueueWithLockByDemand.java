@@ -12,6 +12,7 @@ import java.util.concurrent.locks.ReentrantLock;
 /**
  * Created by Bulgakov Alex on 31.05.2014.
  */
+@Deprecated
 public class ConcurrentArrayQueueWithLockByDemand<E> extends ConcurrentArrayQueue<E> {
 
     public static final int SET_FAILS = 100;

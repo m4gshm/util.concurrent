@@ -20,11 +20,11 @@ public abstract class AbstractConcurrentArrayQueue<E> extends AbstractArrayQueue
     public final static int GET_CURRENT = 2;
     public final static int TRY_AGAIN = 4;
 
-    @NotNull
-    protected final AtomicLongArray levels;
-
     protected final AtomicLong tailSequence = new AtomicLong();
     protected final AtomicLong headSequence = new AtomicLong();
+
+    @NotNull
+    protected final AtomicLongArray levels;
 
     @NotNull
     private final Object[] elements;
@@ -47,6 +47,7 @@ public abstract class AbstractConcurrentArrayQueue<E> extends AbstractArrayQueue
         return levels.toString();
     }
 
+
     @NotNull
     protected String _string() {
         int iMax = elements.length - 1;
@@ -62,6 +63,7 @@ public abstract class AbstractConcurrentArrayQueue<E> extends AbstractArrayQueue
             b.append(',').append(' ');
         }
     }
+
 
     @NotNull
     @Override
@@ -240,7 +242,7 @@ public abstract class AbstractConcurrentArrayQueue<E> extends AbstractArrayQueue
         return next(oldHead, insertedHead, headSequence);
     }
 
-    protected final boolean setNextTail(long oldTail, long insertedTail) {
+    protected boolean setNextTail(long oldTail, long insertedTail) {
         return next(oldTail, insertedTail, tailSequence);
     }
 
@@ -260,7 +262,7 @@ public abstract class AbstractConcurrentArrayQueue<E> extends AbstractArrayQueue
         return set;
     }
 
-    private boolean cas(AtomicLong sequence, long expected, long update) {
-        return sequence.compareAndSet(expected, update);
+    private boolean cas(AtomicLong counter, long expected, long update) {
+        return counter.compareAndSet(expected, update);
     }
 }
