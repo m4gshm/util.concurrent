@@ -20,11 +20,11 @@ public abstract class AbstractConcurrentArrayQueue<E> extends AbstractArrayQueue
     public final static int GET_CURRENT = 2;
     public final static int TRY_AGAIN = 4;
 
-    protected final AtomicLong tailSequence = new AtomicLong();
-    protected final AtomicLong headSequence = new AtomicLong();
+    final AtomicLong tailSequence = new AtomicLong();
+    final AtomicLong headSequence = new AtomicLong();
 
     @NotNull
-    protected final AtomicLongArray levels;
+    final AtomicLongArray levels;
 
     @NotNull
     private final Object[] elements;
@@ -37,7 +37,7 @@ public abstract class AbstractConcurrentArrayQueue<E> extends AbstractArrayQueue
     @NotNull
     @Override
     public String toString() {
-        return "h: " + headSequence + ", t:" + tailSequence + ", c:" + capacity()
+        return "h: " + headSequence + ", t: " + tailSequence + ", c:" + capacity()
                 + "\n" + _string()
                 + "\n" + _levelsString();
     }
@@ -92,7 +92,7 @@ public abstract class AbstractConcurrentArrayQueue<E> extends AbstractArrayQueue
     }
 
     protected final int set(final E e, final long tail, final long currentTail) {
-        int index = calcIndex(currentTail);
+        int index = computeIndex(currentTail);
         long level = computeLevel(currentTail);
         while (true) {
             if (startPutting(index, level)) {
@@ -196,7 +196,7 @@ public abstract class AbstractConcurrentArrayQueue<E> extends AbstractArrayQueue
     @Nullable
     @SuppressWarnings("unchecked")
     protected final E get(long oldHead, long currentHead) {
-        final int index = calcIndex(currentHead);
+        final int index = computeIndex(currentHead);
         final long level = computeNextLevel(computeLevel(currentHead));
         while (true) {
             if (startPooling(index, level)) {
@@ -249,7 +249,9 @@ public abstract class AbstractConcurrentArrayQueue<E> extends AbstractArrayQueue
     private boolean next(long oldVal, long insertedVal, @NotNull AtomicLong sequence) {
         assert insertedVal >= oldVal;
         long newValue = insertedVal + 1;
-        assert oldVal < newValue;
+//        long _nw = newValue < 0 ? -newValue : newValue;
+//        long _ow = oldVal < 0 ? -oldVal : oldVal;
+//        assert _ow < _nw;
         boolean set = cas(sequence, oldVal, newValue);
         while (!set) {
             long currentValue = sequence.get();

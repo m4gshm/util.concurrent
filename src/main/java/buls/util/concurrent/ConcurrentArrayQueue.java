@@ -60,7 +60,8 @@ public class ConcurrentArrayQueue<E> extends AbstractConcurrentArrayQueue<E> imp
     }
 
     protected final boolean checkTailOverflow(long tailForInserting, int capacity) {
-        long amount = tailForInserting - getHead();
+        long head = getHead();
+        long amount = tailForInserting - head;
         return amount > capacity;
     }
 

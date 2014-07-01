@@ -31,11 +31,13 @@ public abstract class AbstractArrayQueue<E> extends AbstractQueue<E> {
     }
 
     protected final int size(long head, long tail) {
-        return (int) (tail - head);
+        long delta = tail - head;
+        return (int) ((int) delta < 0 ? -delta : delta);
     }
 
-    protected final int calcIndex(long counter) {
-        return (int) (counter % capacity());
+    protected final int computeIndex(long counter) {
+        long l = counter % capacity();
+        return (int) ((int) l < 0 ? -l : l);
     }
 
     protected final long computeNextLevel(long level) {
@@ -43,7 +45,14 @@ public abstract class AbstractArrayQueue<E> extends AbstractQueue<E> {
     }
 
     protected final long computeLevel(long counter) {
-        return counter / capacity() * LEVEL_FACTOR;
+        long l = counter / capacity();
+        long result = l * LEVEL_FACTOR;
+        if (counter < 0 && result < 0 && result > counter) {
+            //перевалили за максимальное значение и начали с минимального
+            //assert result < 0;
+            result -= 2;
+        }
+        return result;
     }
 
     protected long computeIteration(long counter) {
@@ -86,8 +95,9 @@ public abstract class AbstractArrayQueue<E> extends AbstractQueue<E> {
 
         final long tail = getTail();
         final long head = getHead();
-
-        return (head < tail) ? getElement(head, tail) : null;
+        int size = size(head, tail);
+        boolean notEmpty = size > 0;
+        return notEmpty ? getElement(head, tail) : null;
     }
 
     @NotNull

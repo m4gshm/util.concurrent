@@ -78,6 +78,16 @@ public abstract class BaseArrayQueueTest {
         testQueueConcurrently(capacity, inserts, attemptsPerInsert, getters, "testInsertAnGetsInConcurrentMode4", THRESHOLD * 2);
     }
 
+    @Test
+    public void testInsertAnGetsInConcurrentMode6() {
+        int inserts = 1;
+        int attemptsPerInsert = 1_000_000;
+        int capacity = 5;
+        int getters = 1;
+
+        testQueueConcurrently(capacity, inserts, attemptsPerInsert, getters, "testInsertAnGetsInConcurrentMode4", THRESHOLD * 2);
+    }
+
     protected void testQueueConcurrently(int capacity, int inserts, int attemptsPerInsert, int getters, String testName, int threshold) {
         ByteArrayOutputStream out = new ByteArrayOutputStream();
         PrintStream printStream = System.out;//new PrintStream(out);

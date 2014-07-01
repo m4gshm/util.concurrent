@@ -134,7 +134,7 @@ public abstract class AbstractConcurrentArrayQueue2<E> extends AbstractArrayQueu
     }
 
     protected final int set(final E e, final long tail, final long currentTail) {
-        int index = calcIndex(currentTail);
+        int index = computeIndex(currentTail);
         long level = computeLevel(currentTail);
         while (true) {
             if (startPutting(index, level)) {
@@ -238,7 +238,7 @@ public abstract class AbstractConcurrentArrayQueue2<E> extends AbstractArrayQueu
     @Nullable
     @SuppressWarnings("unchecked")
     protected final E get(long oldHead, long currentHead) {
-        final int index = calcIndex(currentHead);
+        final int index = computeIndex(currentHead);
         final long level = computeNextLevel(computeLevel(currentHead));
         while (true) {
             if (startPooling(index, level)) {
