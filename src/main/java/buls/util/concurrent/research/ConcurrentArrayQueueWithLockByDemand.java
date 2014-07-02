@@ -1,5 +1,6 @@
-package buls.util.concurrent;
+package buls.util.concurrent.research;
 
+import buls.util.concurrent.ConcurrentArrayQueue;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -34,7 +35,7 @@ public class ConcurrentArrayQueueWithLockByDemand<E> extends ConcurrentArrayQueu
     }
 
     @Override
-    protected boolean setElement(@NotNull final E e, final long tail, long head) {
+    protected boolean setElement(@NotNull final E e, final long tail) {
         long currentTail = tail;
         int capacity = capacity();
 
@@ -77,7 +78,7 @@ public class ConcurrentArrayQueueWithLockByDemand<E> extends ConcurrentArrayQueu
 
     @Nullable
     @Override
-    protected E getElement(final long head, long tail) {
+    protected E getElement(final long head) {
         long currentHead = head;
         long fails = 0;
         boolean hasLock = false;

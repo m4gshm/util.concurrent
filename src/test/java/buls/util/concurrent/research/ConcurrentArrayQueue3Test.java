@@ -1,5 +1,6 @@
-package buls.util.concurrent;
+package buls.util.concurrent.research;
 
+import buls.util.concurrent.BaseArrayQueueTest;
 import org.testng.annotations.Test;
 
 /**

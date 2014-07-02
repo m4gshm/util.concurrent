@@ -1,5 +1,6 @@
-package buls.util.concurrent;
+package buls.util.concurrent.research;
 
+import buls.util.concurrent.ConcurrentArrayQueue;
 import org.jetbrains.annotations.NotNull;
 
 import java.util.concurrent.Semaphore;
@@ -18,10 +19,10 @@ public class ConcurrentArrayQueue5<E> extends ConcurrentArrayQueue<E> {
     }
 
     @Override
-    protected boolean setElement(E e, long tail, long head) {
+    protected boolean setElement(E e, long tail) {
         try {
             setSemaphore.acquire();
-            return super.setElement(e, tail, head);
+            return super.setElement(e, tail);
         } catch (InterruptedException e1) {
             throw new RuntimeException(e1);
         } finally {

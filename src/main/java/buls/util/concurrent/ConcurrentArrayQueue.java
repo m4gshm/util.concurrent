@@ -1,5 +1,6 @@
 package buls.util.concurrent;
 
+import buls.util.concurrent.research.QueueWithStatistic;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -28,7 +29,7 @@ public class ConcurrentArrayQueue<E> extends AbstractConcurrentArrayQueue<E> imp
     }
 
     @Override
-    protected boolean setElement(@NotNull final E e, final long tail, final long head) {
+    protected boolean setElement(@NotNull final E e, final long tail) {
         long currentTail = tail;
         final int capacity = capacity();
 
@@ -67,7 +68,7 @@ public class ConcurrentArrayQueue<E> extends AbstractConcurrentArrayQueue<E> imp
 
     @Nullable
     @Override
-    protected E getElement(final long head, long tail) {
+    protected E getElement(final long head) {
         long currentHead = head;
         while (true) {
             E e;

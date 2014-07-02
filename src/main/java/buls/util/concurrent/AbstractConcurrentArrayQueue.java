@@ -20,8 +20,8 @@ public abstract class AbstractConcurrentArrayQueue<E> extends AbstractArrayQueue
     public final static int GET_CURRENT = 2;
     public final static int TRY_AGAIN = 4;
 
-    final AtomicLong tailSequence = new AtomicLong();
-    final AtomicLong headSequence = new AtomicLong();
+    protected final AtomicLong tailSequence = new AtomicLong();
+    protected final AtomicLong headSequence = new AtomicLong();
 
     @NotNull
     final AtomicLongArray levels;
@@ -92,9 +92,9 @@ public abstract class AbstractConcurrentArrayQueue<E> extends AbstractArrayQueue
     }
 
     protected final int set(final E e, final long tail, final long currentTail) {
-        int index = computeIndex(currentTail);
-        long level = computeLevel(currentTail);
         while (true) {
+            int index = computeIndex(currentTail);
+            long level = computeLevel(currentTail);
             if (startPutting(index, level)) {
                 try {
                     _insert(e, index);
@@ -249,9 +249,6 @@ public abstract class AbstractConcurrentArrayQueue<E> extends AbstractArrayQueue
     private boolean next(long oldVal, long insertedVal, @NotNull AtomicLong sequence) {
         assert insertedVal >= oldVal;
         long newValue = insertedVal + 1;
-//        long _nw = newValue < 0 ? -newValue : newValue;
-//        long _ow = oldVal < 0 ? -oldVal : oldVal;
-//        assert _ow < _nw;
         boolean set = cas(sequence, oldVal, newValue);
         while (!set) {
             long currentValue = sequence.get();

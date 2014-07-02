@@ -1,5 +1,6 @@
-package buls.util.concurrent;
+package buls.util.concurrent.research;
 
+import buls.util.concurrent.AbstractConcurrentArrayQueue;
 import org.jetbrains.annotations.NotNull;
 
 import java.util.concurrent.atomic.AtomicLong;

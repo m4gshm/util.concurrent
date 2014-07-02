@@ -19,9 +19,9 @@ public abstract class AbstractArrayQueue<E> extends AbstractQueue<E> {
 
     protected abstract long getHead();
 
-    protected abstract boolean setElement(E e, long tail, @Deprecated long head);
+    protected abstract boolean setElement(E e, long tail);
 
-    protected abstract E getElement(long head, @Deprecated long tail);
+    protected abstract E getElement(long head);
 
     @Override
     public final int size() {
@@ -45,13 +45,20 @@ public abstract class AbstractArrayQueue<E> extends AbstractQueue<E> {
     }
 
     protected final long computeLevel(long counter) {
-        long l = counter / capacity();
-        long result = l * LEVEL_FACTOR;
-        if (counter < 0 && result < 0 && result > counter) {
-            //перевалили за максимальное значение и начали с минимального
-            //assert result < 0;
-            result -= 2;
+        int capacity = capacity();
+        //long index = computeIndex(counter);
+        int levelFactor = LEVEL_FACTOR;
+        long result;
+        if (counter < 0) {
+            long lastC = Long.MAX_VALUE - (Long.MAX_VALUE % capacity);
+            long delta = counter - lastC;
+            long lastLevel = lastC / capacity * levelFactor;
+            long dLevel = delta / capacity * levelFactor;
+            result = lastLevel + dLevel;
+        } else {
+            result = counter / capacity * levelFactor;
         }
+
         return result;
     }
 
@@ -82,7 +89,7 @@ public abstract class AbstractArrayQueue<E> extends AbstractQueue<E> {
         final long head = getHead();
 
         final long amount = size(head, tail);
-        return (amount < capacity) && setElement(e, tail, head);
+        return (amount < capacity) && setElement(e, tail);
     }
 
     @Nullable
@@ -97,7 +104,7 @@ public abstract class AbstractArrayQueue<E> extends AbstractQueue<E> {
         final long head = getHead();
         int size = size(head, tail);
         boolean notEmpty = size > 0;
-        return notEmpty ? getElement(head, tail) : null;
+        return notEmpty ? getElement(head) : null;
     }
 
     @NotNull

@@ -1,4 +1,4 @@
-package buls.util.concurrent;
+package buls.util.concurrent.research;
 
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -28,7 +28,7 @@ public class ConcurrentArrayQueue2<E> extends AbstractConcurrentArrayQueue1<E> i
     }
 
     @Override
-    protected boolean setElement(@NotNull final E e, final long tail, final long head) {
+    protected boolean setElement(@NotNull final E e, final long tail) {
         long currentTail = tail;
         final int capacity = capacity();
 
@@ -73,7 +73,7 @@ public class ConcurrentArrayQueue2<E> extends AbstractConcurrentArrayQueue1<E> i
 
     @Nullable
     @Override
-    protected E getElement(final long head, long tail) {
+    protected E getElement(final long head) {
         long currentHead = head;
         while (true) {
             E e;

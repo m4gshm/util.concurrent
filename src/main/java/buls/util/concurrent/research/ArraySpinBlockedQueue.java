@@ -1,4 +1,4 @@
-package buls.util.concurrent;
+package buls.util.concurrent.research;
 
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;

@@ -90,16 +90,19 @@ public class ConcurrentArrayQueueTest extends BaseArrayQueueTest {
             queue.offer("A");
             queue.poll();
         }
-        long tail = Long.MAX_VALUE - 1;
-        Assert.assertEquals(tail % queue.capacity(), 0);
+        long tail = Long.MAX_VALUE;
+        while (tail % queue.capacity() != 0) {
+            tail--;
+        }
         long head = tail;
 
         queue.tailSequence.set(tail);
         queue.headSequence.set(head);
         long nextLevel = queue.computeLevel(head);
-        Assert.assertEquals(nextLevel % queue.capacity(), 0);
-        queue.levels.set(0, nextLevel);
-        queue.levels.set(0, nextLevel);
+        //Assert.assertEquals(nextLevel % queue.capacity(), 0);
+        for (int i = 0; i < capacity; i++) {
+            queue.levels.set(i, nextLevel);
+        }
 
         System.out.println(queue);
         char c = 'A';
