@@ -66,6 +66,7 @@ public abstract class AbstractConcurrentArrayQueue2<E> extends AbstractArrayQueu
     protected volatile long headIteration = 1;
 
     public AbstractConcurrentArrayQueue2(int capacity) {
+        super(capacity);
         this.elements = new Object[capacity];
         levels = new AtomicLongArray(capacity);
     }

@@ -21,14 +21,12 @@ public class ConcurrentArrayQueueTest extends BaseArrayQueueTest {
         queue.offer("B");
         queue.poll();
         queue.poll();
-        long tail = Long.MAX_VALUE - 1;
+        long tail = queue.max_tail() - queue.capacity() + 1;
         Assert.assertEquals(tail % queue.capacity(), 0);
-        long head = tail;
 
         queue.tailSequence.set(tail);
-        queue.headSequence.set(head);
-        long nextLevel = queue.computeLevel(head);
-        Assert.assertEquals(nextLevel % queue.capacity(), 0);
+        queue.headSequence.set(tail);
+        long nextLevel = queue.afterGetLevel(tail - 1);
         queue.levels.set(0, nextLevel);
         queue.levels.set(1, nextLevel);
 
@@ -84,21 +82,45 @@ public class ConcurrentArrayQueueTest extends BaseArrayQueueTest {
         testOverflow(capacity, iterations);
     }
 
+//    @Test
+//    public void testTailOverflowMinus1() {
+//        int capacity = 1;
+//        int iterations = 1000;
+//
+//        long tail = -capacity * 20;
+//        testOverflow(capacity, iterations, tail);
+//    }
+//
+//
+//    @Test
+//    public void testTailOverflowMinus3() {
+//        int capacity = 3;
+//        int iterations = 1000;
+//
+//        long tail = -capacity * 20;
+//        testOverflow(capacity, iterations, tail);
+//    }
+
     protected void testOverflow(int capacity, int iterations) {
         ConcurrentArrayQueue<String> queue = createQueue(capacity, false);
+        int maxValue = queue.max_tail();
+        long tail = maxValue - (maxValue % capacity);
+        testOverflow(capacity, iterations, tail, queue);
+    }
+
+    private void testOverflow(int capacity, int iterations, long tail, ConcurrentArrayQueue<String> queue) {
+
+
+        Assert.assertEquals(tail % queue.capacity(), 0);
+
         for (int i = 0; i < capacity; i++) {
             queue.offer("A");
             queue.poll();
         }
-        long tail = Long.MAX_VALUE;
-        while (tail % queue.capacity() != 0) {
-            tail--;
-        }
-        long head = tail;
 
         queue.tailSequence.set(tail);
-        queue.headSequence.set(head);
-        long nextLevel = queue.computeLevel(head);
+        queue.headSequence.set(tail);
+        long nextLevel = queue.afterGetLevel(tail - 1);
         //Assert.assertEquals(nextLevel % queue.capacity(), 0);
         for (int i = 0; i < capacity; i++) {
             queue.levels.set(i, nextLevel);
@@ -107,8 +129,8 @@ public class ConcurrentArrayQueueTest extends BaseArrayQueueTest {
         System.out.println(queue);
         char c = 'A';
         for (int i = 0; i < iterations; i++) {
-            Assert.assertTrue(queue.offer(new String(a(c++))));
-            Assert.assertTrue(queue.poll() != null);
+            Assert.assertTrue(queue.offer(new String(a(c++))), "" + i);
+            Assert.assertTrue(queue.poll() != null, "" + i);
         }
 
 

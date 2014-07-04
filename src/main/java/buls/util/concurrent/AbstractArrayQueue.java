@@ -9,9 +9,16 @@ import java.util.AbstractQueue;
  * Created by Alex on 25.06.2014.
  */
 public abstract class AbstractArrayQueue<E> extends AbstractQueue<E> {
+    protected static final long PUTTING = Long.MIN_VALUE;
+    protected static final long POOLING = Long.MAX_VALUE;
+    protected static final int NEXT_LEVEL_SUMMAND = 1;
+    static final int MAX_VALUE = Integer.MAX_VALUE;
+    private static final int LOAD_FACTOR = 2;
+    private final int MAX_TAIL;
 
-    public static final int LEVEL_FACTOR = 2;
-    public static final int NEXT_LEVEL_SUMMAND = 1;
+    protected AbstractArrayQueue(int capacity) {
+        MAX_TAIL = capacity == 0 ? 0 : (MAX_VALUE - Integer.MAX_VALUE % capacity) - 1;
+    }
 
     public abstract int capacity();
 
@@ -23,6 +30,10 @@ public abstract class AbstractArrayQueue<E> extends AbstractQueue<E> {
 
     protected abstract E getElement(long head);
 
+    protected final int max_tail() {
+        return MAX_TAIL;
+    }
+
     @Override
     public final int size() {
         long tail = getTail();
@@ -30,14 +41,14 @@ public abstract class AbstractArrayQueue<E> extends AbstractQueue<E> {
         return size(head, tail);
     }
 
-    protected final int size(long head, long tail) {
+    protected int size(long head, long tail) {
         long delta = tail - head;
-        return (int) ((int) delta < 0 ? -delta : delta);
+        assert delta >= 0;
+        return (int) delta;
     }
 
     protected final int computeIndex(long counter) {
-        long l = counter % capacity();
-        return (int) ((int) l < 0 ? -l : l);
+        return (int) (counter % capacity());
     }
 
     protected final long computeNextLevel(long level) {
@@ -45,23 +56,35 @@ public abstract class AbstractArrayQueue<E> extends AbstractQueue<E> {
     }
 
     protected final long computeLevel(long counter) {
-        int capacity = capacity();
-        //long index = computeIndex(counter);
-        int levelFactor = LEVEL_FACTOR;
-        long result;
-        if (counter < 0) {
-            long lastC = Long.MAX_VALUE - (Long.MAX_VALUE % capacity);
-            long delta = counter - lastC;
-            long lastLevel = lastC / capacity * levelFactor;
-            long dLevel = delta / capacity * levelFactor;
-            result = lastLevel + dLevel;
-        } else {
-            result = counter / capacity * levelFactor;
-        }
-
-        return result;
+        assertCounter(counter);
+        return counter / capacity();
     }
 
+    protected final long computeNextLevel2(long counter) {
+        assertCounter(counter);
+        long lfc = levelFirstCounter(counter);
+        long nlc = nextLevelCounter(lfc);
+        return computeLevel(nlc);
+    }
+
+    protected long levelFirstCounter(long counter) {
+        return counter - computeIndex(counter);
+    }
+
+    protected long nextLevelCounter(long lfc) {
+        if (lfc == MAX_VALUE) {
+            return 0;
+        }
+        int capacity = capacity();
+        return lfc - (lfc % capacity) + capacity;
+    }
+
+    private void assertCounter(long counter) {
+        assert counter >= 0 : counter + "<0";
+        assert counter < Long.MAX_VALUE : "counter = MAX_VALUE";
+    }
+
+    @Deprecated
     protected long computeIteration(long counter) {
         return counter / capacity() + 1;
     }
