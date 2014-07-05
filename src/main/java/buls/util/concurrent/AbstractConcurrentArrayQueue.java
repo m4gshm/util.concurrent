@@ -84,10 +84,7 @@ public abstract class AbstractConcurrentArrayQueue<E> extends AbstractArrayQueue
         } else {
             //bullshit
             delta = tail - head;
-            //throw new IllegalStateException("bad delta: " + head + " " + tail);
         }
-        //assert delta >= 0 : delta;
-        //assert delta <= capacity() : delta + " " + capacity();
         return (int) delta;
     }
 
@@ -107,7 +104,7 @@ public abstract class AbstractConcurrentArrayQueue<E> extends AbstractArrayQueue
         return _insert(e, index);
     }
 
-    protected final int set(final E e, final long tail, final long currentTail, long head) {
+    protected final int set(final E e, final long tail, final long currentTail, final long head) {
         while (isNotInterrupted()) {
             int index = computeIndex(currentTail);
             long L1 = tailOverflow ? max_tail() + 1 : currentTail;
@@ -290,7 +287,7 @@ public abstract class AbstractConcurrentArrayQueue<E> extends AbstractArrayQueue
             } else if (c > level) {
                 return true;
             } else if (c < level) {
-
+                return true;
             }
             throw new IllegalStateException("invalid level :" + level + " " + current + ", index " + index + ", head " + currentHead + ", tail " + tail + "\n" + this);
         } else if (level < current) {

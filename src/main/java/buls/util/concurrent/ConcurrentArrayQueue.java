@@ -29,7 +29,7 @@ public class ConcurrentArrayQueue<E> extends AbstractConcurrentArrayQueue<E> imp
     }
 
     @Override
-    protected boolean setElement(@NotNull final E e, final long tail, long head) {
+    protected boolean setElement(@NotNull final E e, final long tail, final long head) {
         long currentTail = tail;
         final int capacity = capacity();
 
@@ -127,11 +127,11 @@ public class ConcurrentArrayQueue<E> extends AbstractConcurrentArrayQueue<E> imp
 
     protected long computeHead(long head) {
         final long h = getHead();
-        //if (head < h) {
+        if (head < h) {
             head = h;
-        //} else {
-        //    head++;
-        //}
+        } else {
+            head++;
+        }
         return head;
     }
 
