@@ -28,7 +28,7 @@ public class ConcurrentArrayQueue3<E> extends AbstractConcurrentArrayQueue2<E> i
     }
 
     @Override
-    protected boolean setElement(@NotNull final E e, final long tail) {
+    protected boolean setElement(@NotNull final E e, final long tail, long head) {
         long currentTail = tail;
         final int capacity = capacity();
 
@@ -73,7 +73,7 @@ public class ConcurrentArrayQueue3<E> extends AbstractConcurrentArrayQueue2<E> i
 
     @Nullable
     @Override
-    protected E getElement(final long head) {
+    protected E getElement(final long head, long tail) {
         long currentHead = head;
         while (true) {
             E e;

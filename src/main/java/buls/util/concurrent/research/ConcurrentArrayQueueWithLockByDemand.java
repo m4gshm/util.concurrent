@@ -35,7 +35,7 @@ public class ConcurrentArrayQueueWithLockByDemand<E> extends ConcurrentArrayQueu
     }
 
     @Override
-    protected boolean setElement(@NotNull final E e, final long tail) {
+    protected boolean setElement(@NotNull final E e, final long tail, long head) {
         long currentTail = tail;
         int capacity = capacity();
 
@@ -48,7 +48,7 @@ public class ConcurrentArrayQueueWithLockByDemand<E> extends ConcurrentArrayQueu
             final Lock lock = setLock;
             hasLock = acquireLock(needLock, lock);
             while (true) {
-                final int res = set(e, tail, currentTail);
+                final int res = set(e, tail, currentTail, head);
                 if (res == SUCCESS) {
                     successSet();
                     return true;
@@ -78,7 +78,7 @@ public class ConcurrentArrayQueueWithLockByDemand<E> extends ConcurrentArrayQueu
 
     @Nullable
     @Override
-    protected E getElement(final long head) {
+    protected E getElement(final long head, long tail) {
         long currentHead = head;
         long fails = 0;
         boolean hasLock = false;
@@ -90,7 +90,7 @@ public class ConcurrentArrayQueueWithLockByDemand<E> extends ConcurrentArrayQueu
             hasLock = acquireLock(needLock, lock);
             while (true) {
                 E e;
-                if ((e = get(head, currentHead)) != null) {
+                if ((e = get(head, currentHead, tail, fails)) != null) {
                     successGet();
                     return e;
                 } else {

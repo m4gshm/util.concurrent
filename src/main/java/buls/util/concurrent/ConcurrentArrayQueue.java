@@ -29,12 +29,12 @@ public class ConcurrentArrayQueue<E> extends AbstractConcurrentArrayQueue<E> imp
     }
 
     @Override
-    protected boolean setElement(@NotNull final E e, final long tail) {
+    protected boolean setElement(@NotNull final E e, final long tail, long head) {
         long currentTail = tail;
         final int capacity = capacity();
 
-        while (true) {
-            final int res = set(e, tail, currentTail);
+        while (isNotInterrupted()) {
+            final int res = set(e, tail, currentTail, head);
             if (res == SUCCESS) {
                 successSet();
                 return true;
@@ -48,6 +48,7 @@ public class ConcurrentArrayQueue<E> extends AbstractConcurrentArrayQueue<E> imp
                 }
             }
         }
+        return false;
     }
 
     protected long computeTail(long currentTail, int calculateType) {
@@ -55,7 +56,7 @@ public class ConcurrentArrayQueue<E> extends AbstractConcurrentArrayQueue<E> imp
             currentTail++;
         } else {
             currentTail = getTail();
-            assert calculateType == GET_CURRENT;
+            assert calculateType == GET_CURRENT_TAIL;
         }
         return currentTail;
     }
@@ -68,23 +69,31 @@ public class ConcurrentArrayQueue<E> extends AbstractConcurrentArrayQueue<E> imp
 
     @Nullable
     @Override
-    protected E getElement(final long head) {
+    protected E getElement(final long head, final long tail) {
+        assert delta(head, tail) > 0 : head + " " + tail + ", size " + delta(head, tail);
         long currentHead = head;
-        while (true) {
+        long currentTail = tail;
+        long fails = 0;
+        while (isNotInterrupted()) {
             E e;
-            if ((e = get(head, currentHead)) != null) {
+            if ((e = get(head, currentHead, currentTail, fails)) != null) {
                 successGet();
                 return e;
             } else {
+                fails++;
                 failGet();
 
                 currentHead = computeHead(currentHead);
                 long t = getTail();
+
                 if (checkHeadOverflow(currentHead, t)) {
                     return null;
                 }
+                assert delta(currentHead, t) > 0 : currentHead + " " + t + ", delta " + delta(currentHead, t);
+                currentTail = t;
             }
         }
+        return null;
     }
 
     protected final void failGet() {
@@ -104,16 +113,25 @@ public class ConcurrentArrayQueue<E> extends AbstractConcurrentArrayQueue<E> imp
     }
 
     protected final boolean checkHeadOverflow(long newHead, long tail) {
-        return newHead >= tail;
+        boolean overflow;
+        if (newHead == tail) {
+
+            overflow = true;
+        } else {
+            int delta = delta(newHead, tail);
+            int capacity = capacity();
+            overflow = delta > capacity;
+        }
+        return overflow;
     }
 
     protected long computeHead(long head) {
         final long h = getHead();
-        if (head < h) {
+        //if (head < h) {
             head = h;
-        } else {
-            head++;
-        }
+        //} else {
+        //    head++;
+        //}
         return head;
     }
 

@@ -28,12 +28,12 @@ public class ConcurrentArrayQueue2<E> extends AbstractConcurrentArrayQueue1<E> i
     }
 
     @Override
-    protected boolean setElement(@NotNull final E e, final long tail) {
+    protected boolean setElement(@NotNull final E e, final long tail, long head) {
         long currentTail = tail;
         final int capacity = capacity();
 
         while (true) {
-            final int res = set(e, tail, currentTail);
+            final int res = set(e, tail, currentTail, head);
             if (res == SUCCESS) {
                 successSet();
                 return true;
@@ -61,7 +61,7 @@ public class ConcurrentArrayQueue2<E> extends AbstractConcurrentArrayQueue1<E> i
             currentTail++;
         } else {
             currentTail = getTail();
-            assert calculateType == GET_CURRENT;
+            assert calculateType == GET_CURRENT_TAIL;
         }
         return currentTail;
     }
@@ -73,16 +73,17 @@ public class ConcurrentArrayQueue2<E> extends AbstractConcurrentArrayQueue1<E> i
 
     @Nullable
     @Override
-    protected E getElement(final long head) {
+    protected E getElement(final long head, long tail) {
         long currentHead = head;
+        long fails = 0;
         while (true) {
             E e;
-            if ((e = get(head, currentHead)) != null) {
+            if ((e = get(head, currentHead, tail, fails)) != null) {
                 successGet();
                 return e;
             } else {
                 failGet();
-
+                fails++;
                 currentHead = computeHead(currentHead);
 
                 boolean overflow;
@@ -124,11 +125,11 @@ public class ConcurrentArrayQueue2<E> extends AbstractConcurrentArrayQueue1<E> i
 
     protected long computeHead(long head) {
         final long h = getHead();
-        if (head < h) {
-            head = h;
-        } else {
-            head++;
-        }
+        //if (head < h) {
+        head = h;
+        //} else {
+        //    head++;
+        //}
         return head;
     }
 

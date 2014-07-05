@@ -19,10 +19,10 @@ public class ConcurrentArrayQueue5<E> extends ConcurrentArrayQueue<E> {
     }
 
     @Override
-    protected boolean setElement(E e, long tail) {
+    protected boolean setElement(E e, long tail, long head) {
         try {
             setSemaphore.acquire();
-            return super.setElement(e, tail);
+            return super.setElement(e, tail, head);
         } catch (InterruptedException e1) {
             throw new RuntimeException(e1);
         } finally {

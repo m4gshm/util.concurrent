@@ -89,7 +89,14 @@ public abstract class BaseArrayQueueTest {
         testQueueConcurrently(capacity, inserts, attemptsPerInsert, getters, "testInsertAnGetsInConcurrentMode4", THRESHOLD * 2);
     }
 
-    protected void testQueueConcurrently(int capacity, int inserts, int attemptsPerInsert, int getters, String testName, int threshold) {
+
+    private void testQueueConcurrently(int capacity, int inserts, int attemptsPerInsert, int getters, String testName, int threshold) {
+        final QueueWithStatistic<String> queue = createQueue(capacity, WRITE_STATISTIC);
+
+        testQueueConcurrently(queue, inserts, attemptsPerInsert, getters, testName, threshold);
+    }
+
+    protected void testQueueConcurrently(QueueWithStatistic<String> queue, int inserts, int attemptsPerInsert, int getters, String testName, int threshold) {
         ByteArrayOutputStream out = new ByteArrayOutputStream();
         PrintStream printStream = System.out;//new PrintStream(out);
         printStream.println("START " + testName);
@@ -98,8 +105,6 @@ public abstract class BaseArrayQueueTest {
             attemptsPerGet = 1;
         }
         Assert.assertTrue(attemptsPerGet * getters >= inserts * attemptsPerInsert);
-
-        final QueueWithStatistic<String> queue = createQueue(capacity, WRITE_STATISTIC);
 
         final CountDownLatch endTrigger = new CountDownLatch(inserts + getters);
         final CountDownLatch startTrigger = new CountDownLatch(1);
@@ -174,7 +179,7 @@ public abstract class BaseArrayQueueTest {
         }
     }
 
-    private Runnable createGetter(final Queue<String> queue, final int attemptsPerGet,
+    private Runnable createGetter(final QueueWithStatistic<String> queue, final int attemptsPerGet,
                                   final Collection<String> results,
                                   final CountDownLatch startTrigger, final CountDownLatch endTrigger,
                                   final AtomicLong pollFailCounter, final int threshold) {
@@ -196,6 +201,8 @@ public abstract class BaseArrayQueueTest {
                             Thread.yield();
                             fails++;
                             if (fails > threshold) {
+                                System.out.println(queue);
+                                queue.printStatistic(System.out);
                                 throw new IllegalStateException(fails + " fails");
                             }
                         } else {
@@ -210,7 +217,7 @@ public abstract class BaseArrayQueueTest {
         };
     }
 
-    protected Runnable createInserter(final Queue<String> queue, final int attemptsPerInsert, final CountDownLatch startTrigger,
+    protected Runnable createInserter(final QueueWithStatistic<String> queue, final int attemptsPerInsert, final CountDownLatch startTrigger,
                                       final CountDownLatch endTrigger, final AtomicLong offerFailCounter) {
         return new Runnable() {
             public void run() {
@@ -229,6 +236,8 @@ public abstract class BaseArrayQueueTest {
                             Thread.yield();
                             fails++;
                             if (fails > 100_000_000) {
+                                System.out.println(queue);
+                                queue.printStatistic(System.out);
                                 throw new IllegalStateException(fails + " fails");
                             }
                         } else {

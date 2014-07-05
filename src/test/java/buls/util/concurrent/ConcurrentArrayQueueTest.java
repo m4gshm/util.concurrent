@@ -110,7 +110,17 @@ public class ConcurrentArrayQueueTest extends BaseArrayQueueTest {
 
     private void testOverflow(int capacity, int iterations, long tail, ConcurrentArrayQueue<String> queue) {
 
+        initQueueOverflow(queue, capacity, tail);
+        char c = 'A';
+        for (int i = 0; i < iterations; i++) {
+            Assert.assertTrue(queue.offer(new String(a(c++))), "" + i);
+            Assert.assertTrue(queue.poll() != null, "" + i);
+        }
 
+        System.out.println(queue);
+    }
+
+    private void initQueueOverflow(ConcurrentArrayQueue<String> queue, int capacity, long tail) {
         Assert.assertEquals(tail % queue.capacity(), 0);
 
         for (int i = 0; i < capacity; i++) {
@@ -127,18 +137,26 @@ public class ConcurrentArrayQueueTest extends BaseArrayQueueTest {
         }
 
         System.out.println(queue);
-        char c = 'A';
-        for (int i = 0; i < iterations; i++) {
-            Assert.assertTrue(queue.offer(new String(a(c++))), "" + i);
-            Assert.assertTrue(queue.poll() != null, "" + i);
-        }
-
-
-        System.out.println(queue);
     }
 
     private char[] a(char... c) {
         return c;
+    }
+
+    @Test
+    public void testOverflowInConcurrentMode6() {
+        int inserts = 2;
+        int attemptsPerInsert = 1_000_000;
+        int capacity = 5;
+        int getters = 2;
+
+        final ConcurrentArrayQueue<String> queue = createQueue(capacity, WRITE_STATISTIC);
+        int maxValue = queue.max_tail();
+        long tail = maxValue - (maxValue % capacity) - capacity;
+
+        initQueueOverflow(queue, capacity, tail);
+
+        testQueueConcurrently(queue, inserts, attemptsPerInsert, getters, "testInsertAnGetsInConcurrentMode4", THRESHOLD * 2);
     }
 
 }

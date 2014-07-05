@@ -9,8 +9,8 @@ import java.util.AbstractQueue;
  * Created by Alex on 25.06.2014.
  */
 public abstract class AbstractArrayQueue<E> extends AbstractQueue<E> {
-    protected static final long PUTTING = Long.MIN_VALUE;
-    protected static final long POOLING = Long.MAX_VALUE;
+    protected static final long PUTTING = Long.MAX_VALUE;
+    protected static final long POOLING = Long.MIN_VALUE;
     protected static final int NEXT_LEVEL_SUMMAND = 1;
     static final int MAX_VALUE = Integer.MAX_VALUE;
     private static final int LOAD_FACTOR = 2;
@@ -26,9 +26,9 @@ public abstract class AbstractArrayQueue<E> extends AbstractQueue<E> {
 
     protected abstract long getHead();
 
-    protected abstract boolean setElement(E e, long tail);
+    protected abstract boolean setElement(E e, long tail, long head);
 
-    protected abstract E getElement(long head);
+    protected abstract E getElement(long head, long tail);
 
     protected final int max_tail() {
         return MAX_TAIL;
@@ -38,10 +38,10 @@ public abstract class AbstractArrayQueue<E> extends AbstractQueue<E> {
     public final int size() {
         long tail = getTail();
         long head = getHead();
-        return size(head, tail);
+        return delta(head, tail);
     }
 
-    protected int size(long head, long tail) {
+    protected int delta(long head, long tail) {
         long delta = tail - head;
         assert delta >= 0;
         return (int) delta;
@@ -111,8 +111,8 @@ public abstract class AbstractArrayQueue<E> extends AbstractQueue<E> {
         final long tail = getTail();
         final long head = getHead();
 
-        final long amount = size(head, tail);
-        return (amount < capacity) && setElement(e, tail);
+        final long amount = delta(head, tail);
+        return (amount < capacity) && setElement(e, tail, head);
     }
 
     @Nullable
@@ -125,9 +125,9 @@ public abstract class AbstractArrayQueue<E> extends AbstractQueue<E> {
 
         final long tail = getTail();
         final long head = getHead();
-        int size = size(head, tail);
+        int size = delta(head, tail);
         boolean notEmpty = size > 0;
-        return notEmpty ? getElement(head) : null;
+        return notEmpty ? getElement(head, tail) : null;
     }
 
     @NotNull
