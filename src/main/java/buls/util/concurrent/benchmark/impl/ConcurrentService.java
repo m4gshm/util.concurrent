@@ -65,6 +65,9 @@ public abstract class ConcurrentService extends AbstractService {
     }
 
     protected void initThreads(int threadAmount) {
+        if (threadAmount <= 0) {
+            throw new IllegalArgumentException("threadAmount<=0");
+        }
         CountDownLatch latch = new CountDownLatch(threadAmount);
         for (int i = 1; i <= threadAmount; ++i) {
             Thread thread = createThread(latch, i);
