@@ -22,13 +22,12 @@ public class CAQ_Benchmark1 {
     public int readers;
     @Param({"10000", "1000000", "10000000"})
     public int capacity;
-    @Param({"false"})
+//    @Param({"false"})
     private boolean writeStatistic;
     public Service service;
 
     @Setup(Level.Iteration)
     public void setup() {
-
         ServiceFactory factory = new ServiceFactory(readers, capacity, writeStatistic);
         factory.startup();
         service = factory.getService();
@@ -102,7 +101,7 @@ public class CAQ_Benchmark1 {
         @Override
         @NotNull
         protected Queue<Runnable> createQueue() {
-            return new ConcurrentArrayQueue<>(capacity, writeStatistic);
+            return new ConcurrentArrayQueue<>(capacity/*, writeStatistic*/);
         }
     }
 

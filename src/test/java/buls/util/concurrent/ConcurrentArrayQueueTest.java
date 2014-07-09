@@ -1,17 +1,17 @@
 package buls.util.concurrent;
 
-import org.testng.Assert;
-import org.testng.annotations.Test;
+
+import org.junit.Assert;
+import org.junit.Test;
 
 /**
  * Created by Bulgakov Alex on 31.05.2014.
  */
-@Test
 public class ConcurrentArrayQueueTest extends BaseArrayQueueTest {
 
     @Override
     protected ConcurrentArrayQueue<String> createQueue(int capacity, boolean writeStatistic) {
-        return new ConcurrentArrayQueue<>(capacity, writeStatistic);
+        return new ConcurrentArrayQueue<>(capacity/*, writeStatistic*/);
     }
 
     @Test
@@ -113,8 +113,8 @@ public class ConcurrentArrayQueueTest extends BaseArrayQueueTest {
         initQueueOverflow(queue, capacity, tail);
         char c = 'A';
         for (int i = 0; i < iterations; i++) {
-            Assert.assertTrue(queue.offer(new String(a(c++))), "" + i);
-            Assert.assertTrue(queue.poll() != null, "" + i);
+            Assert.assertTrue("" + i,queue.offer(new String(a(c++))));
+            Assert.assertTrue("" + i,queue.poll() != null);
         }
 
         System.out.println(queue);

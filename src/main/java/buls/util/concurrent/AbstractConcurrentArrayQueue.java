@@ -22,10 +22,9 @@ public abstract class AbstractConcurrentArrayQueue<E> extends AbstractArrayQueue
     protected final AtomicLong tailSequence = new AtomicLong();
     protected final AtomicLong headSequence = new AtomicLong();
     @NotNull
-    private final Object[] elements;
+    final AtomicLongArray levels;
     @NotNull
-    AtomicLongArray levels;
-
+    private final Object[] elements;
     private volatile boolean tailOverflow;
 
     public AbstractConcurrentArrayQueue(int capacity) {
@@ -63,7 +62,6 @@ public abstract class AbstractConcurrentArrayQueue<E> extends AbstractArrayQueue
         }
     }
 
-
     @NotNull
     @Override
     public Iterator<E> iterator() {
@@ -89,7 +87,6 @@ public abstract class AbstractConcurrentArrayQueue<E> extends AbstractArrayQueue
         return (int) delta;
     }
 
-
     @Override
     protected final long getTail() {
         return tailSequence.get();
@@ -98,11 +95,6 @@ public abstract class AbstractConcurrentArrayQueue<E> extends AbstractArrayQueue
     @Override
     protected final long getHead() {
         return headSequence.get();
-    }
-
-    @Deprecated
-    protected final boolean set(E e, int index) {
-        return _insert(e, index);
     }
 
     protected final int set(final E e, final long tail, final long currentTail, final long head) {
@@ -115,7 +107,7 @@ public abstract class AbstractConcurrentArrayQueue<E> extends AbstractArrayQueue
                     _insert(e, index);
                     int result;
 
-                    long l = setNextTail2(tail, currentTail);
+                    setNextTail(tail, currentTail);
 
                     result = SUCCESS;
                     return result;
@@ -135,6 +127,45 @@ public abstract class AbstractConcurrentArrayQueue<E> extends AbstractArrayQueue
         return INTERRUPTED;
     }
 
+    protected final long computeTail(long currentTail, int calculateType) {
+        if (calculateType == GO_NEXT) {
+            currentTail++;
+        } else {
+            currentTail = getTail();
+            assert calculateType == GET_CURRENT_TAIL;
+        }
+        return currentTail;
+    }
+
+    protected final long computeHead(long head) {
+        final long h = getHead();
+        if (head < h) {
+            head = h;
+        } else {
+            head++;
+        }
+        return head;
+    }
+
+    protected final boolean checkTailOverflow(long tailForInserting, int capacity) {
+        long head = getHead();
+        long amount = tailForInserting - head;
+        return amount > capacity;
+    }
+
+    protected final boolean checkHeadOverflow(long newHead, long tail) {
+        boolean overflow;
+        if (newHead == tail) {
+
+            overflow = true;
+        } else {
+            int delta = delta(newHead, tail);
+            int capacity = capacity();
+            overflow = delta > capacity;
+        }
+        return overflow;
+    }
+
     private int failPutting(int index, long level, long currentTail, long head) {
         assert level <= 0 : level;
 
@@ -150,23 +181,24 @@ public abstract class AbstractConcurrentArrayQueue<E> extends AbstractArrayQueue
             //pooled
             result = TRY_AGAIN;
         } else {
-            if (current > 0) {
-                long l = -level;
-                if (current == l) {
-                    //поток-вставщик заполнил текущую ячейку, прошел круг и пытается вставить в неё же на следующем уровне
-                    //todo exception
-                    return GET_CURRENT_TAIL;
-                } else if (current > l) {
-                    //поток опоздал на один уровень, выходим и запрашиваем текущий хвост
-                    return GET_CURRENT_TAIL;
-                }
-                throw new IllegalStateException(current + ", " + l);
-            } else if (current < 0) {
-                assert level > current : level + ">" + current;
-                result = GET_CURRENT_TAIL;
-            } else {
-                throw new IllegalStateException(current + ", " + level);
-            }
+            result = GET_CURRENT_TAIL;
+//            if (current > 0) {
+//                long l = -level;
+//                if (current == l) {
+//                    //поток-вставщик заполнил текущую ячейку, прошел круг и пытается вставить в неё же на следующем уровне
+//                    //todo exception
+//                    return GET_CURRENT_TAIL;
+//                } else if (current > l) {
+//                    //поток опоздал на один уровень, выходим и запрашиваем текущий хвост
+//                    return GET_CURRENT_TAIL;
+//                }
+//                throw new IllegalStateException(current + ", " + l);
+//            } else if (current < 0) {
+//                assert level > current : level + ">" + current;
+//                result = GET_CURRENT_TAIL;
+//            } else {
+//                throw new IllegalStateException(current + ", " + level);
+//            }
         }
         return result;
     }
@@ -177,6 +209,10 @@ public abstract class AbstractConcurrentArrayQueue<E> extends AbstractArrayQueue
 
     private boolean _levelCas(int index, long expect, long update) {
         return levels.compareAndSet(index, expect, update);
+    }
+
+    private boolean startPutting(int index, long level) {
+        return _levelCas(index, level, PUTTING);
     }
 
     private void finishPutting(long currentTail, int index) {
@@ -196,54 +232,29 @@ public abstract class AbstractConcurrentArrayQueue<E> extends AbstractArrayQueue
         return computeLevel(nextLevelCounter);
     }
 
-
     private long beforeGetLevel(long currentHead) {
         return afterSetLevel(currentHead);
     }
 
-    long afterGetLevel(long currentHead) {
+    final long afterGetLevel(long currentHead) {
         return -beforeGetLevel(currentHead);
     }
 
-
-    private boolean startPutting(int index, long level) {
-        return _levelCas(index, level, PUTTING);
-    }
-
     @Nullable
-    protected E _get(int index) {
+    protected final E _get(int index) {
         return (E) elements[index];
     }
 
-    protected boolean _insert(E e, int index) {
+    protected final boolean _insert(E e, int index) {
         elements[index] = e;
         return true;
     }
 
     @NotNull
-    protected E _retrieve(int index) {
+    protected final E _retrieve(int index) {
         E e = _get(index);
         _insert(null, index);
         return e;
-    }
-
-    protected boolean _remove(E e, int index) {
-        _insert(null, index);
-        return true;
-    }
-
-    @Nullable
-    @Deprecated
-    @SuppressWarnings("unchecked")
-    protected final E get(int index) {
-        E e = _get(index);
-        if (e != null) {
-            boolean set = _remove(e, index);
-            if (set) {
-                return e;
-            }
-        }
-        return null;
     }
 
     @Nullable
@@ -260,7 +271,7 @@ public abstract class AbstractConcurrentArrayQueue<E> extends AbstractArrayQueue
                 try {
                     final E e = _retrieve(index);
                     assert e != null;
-                    setNextHead2(oldHead, currentHead);
+                    setNextHead(oldHead, currentHead);
 
                     return e;
                 } finally {
@@ -273,7 +284,7 @@ public abstract class AbstractConcurrentArrayQueue<E> extends AbstractArrayQueue
         return null;
     }
 
-    protected boolean isNotInterrupted() {
+    protected final boolean isNotInterrupted() {
         return true;
     }
 
@@ -286,31 +297,32 @@ public abstract class AbstractConcurrentArrayQueue<E> extends AbstractArrayQueue
         } else if (level == current) {
             return false;
         } else {
-            if (current == POOLING) {
-                //return Pol.GET_CURRENT_HEAD;
-                return true;
-            } else if (current < 0) {
-                long c = -current;
-                if (c == level) {
-                    //нас обогнали в пуллинге
-                    //return Pol.GET_CURRENT_HEAD;
-                    return true;
-                } else if (c > level) {
-                    //нас обогнали в пуллинге как минимум на один уровень
-                    //return Pol.GET_CURRENT_HEAD;
-                    return true;
-                } else if (c < level) {
-                    //return Pol.GET_CURRENT_HEAD;
-                    //todo exception
-                    return true;
-                }
-                throw new IllegalStateException("invalid level :" + level + " " + current + ", index " + index + ", head " + currentHead + ", tail " + tail + "\n" + this);
-            } else if (level < current) {
-                return true;
-            } else {
-                assert level == -current : "invalid level :" + level + " " + current + ", index " + index + ", head " + currentHead + ", tail " + tail + "\n" + this;
-                return true;
-            }
+            return true;
+//            if (current == POOLING) {
+//                //return Pol.GET_CURRENT_HEAD;
+//                return true;
+//            } else if (current < 0) {
+//                long c = -current;
+//                if (c == level) {
+//                    //нас обогнали в пуллинге
+//                    //return Pol.GET_CURRENT_HEAD;
+//                    return true;
+//                } else if (c > level) {
+//                    //нас обогнали в пуллинге как минимум на один уровень
+//                    //return Pol.GET_CURRENT_HEAD;
+//                    return true;
+//                } else if (c < level) {
+//                    //return Pol.GET_CURRENT_HEAD;
+//                    //todo exception
+//                    return true;
+//                }
+//                throw new IllegalStateException("invalid level :" + level + " " + current + ", index " + index + ", head " + currentHead + ", tail " + tail + "\n" + this);
+//            } else if (level < current) {
+//                return true;
+//            } else {
+//                assert level == -current : "invalid level :" + level + " " + current + ", index " + index + ", head " + currentHead + ", tail " + tail + "\n" + this;
+//                return true;
+//            }
         }
     }
 
@@ -325,20 +337,11 @@ public abstract class AbstractConcurrentArrayQueue<E> extends AbstractArrayQueue
         return _levelCas(index, level, POOLING);
     }
 
-    protected boolean setNextHead(long oldHead, long insertedHead) {
-        throw new UnsupportedOperationException();
+    protected void setNextHead(long oldHead, long insertedHead) {
+        next(oldHead, insertedHead, headSequence);
     }
 
-    protected long setNextHead2(long oldHead, long insertedHead) {
-        return next(oldHead, insertedHead, headSequence);
-    }
-
-    @Deprecated
-    protected boolean setNextTail(long oldTail, long insertedTail) {
-        throw new UnsupportedOperationException();
-    }
-
-    protected long setNextTail2(long oldTail, long insertedTail) {
+    protected void setNextTail(long oldTail, long insertedTail) {
         long l = next(oldTail, insertedTail, tailSequence);
         if (l < insertedTail) {
             tailOverflow = true;
@@ -348,7 +351,6 @@ public abstract class AbstractConcurrentArrayQueue<E> extends AbstractArrayQueue
                 tailOverflow = false;
             }
         }
-        return l;
     }
 
     private long next(final long oldVal, final long insertedVal, final @NotNull AtomicLong sequence) {
@@ -357,11 +359,11 @@ public abstract class AbstractConcurrentArrayQueue<E> extends AbstractArrayQueue
         assert insertedVal <= max_tail();
 
         final long newValue = (insertedVal == max_tail()) ? 0 : insertedVal + 1;
-        boolean set = cas(sequence, oldVal, newValue);
+        boolean set = _cas(sequence, oldVal, newValue);
         while (!set) {
             final long currentValue = sequence.get();
             if (currentValue < newValue) {
-                set = cas(sequence, currentValue, newValue);
+                set = _cas(sequence, currentValue, newValue);
             } else {
                 return insertedVal;
             }
@@ -369,7 +371,7 @@ public abstract class AbstractConcurrentArrayQueue<E> extends AbstractArrayQueue
         return newValue;
     }
 
-    private boolean cas(@NotNull AtomicLong counter, long expected, long update) {
+    private boolean _cas(@NotNull AtomicLong counter, long expected, long update) {
         return counter.compareAndSet(expected, update);
     }
 }

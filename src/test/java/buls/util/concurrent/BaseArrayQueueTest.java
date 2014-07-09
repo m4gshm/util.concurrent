@@ -1,8 +1,9 @@
 package buls.util.concurrent;
 
 import buls.util.concurrent.research.QueueWithStatistic;
-import org.testng.Assert;
-import org.testng.annotations.Test;
+import org.junit.Assert;
+import org.junit.Test;
+
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -91,12 +92,12 @@ public abstract class BaseArrayQueueTest {
 
 
     private void testQueueConcurrently(int capacity, int inserts, int attemptsPerInsert, int getters, String testName, int threshold) {
-        final QueueWithStatistic<String> queue = createQueue(capacity, WRITE_STATISTIC);
+        final Queue<String> queue = createQueue(capacity, WRITE_STATISTIC);
 
         testQueueConcurrently(queue, inserts, attemptsPerInsert, getters, testName, threshold);
     }
 
-    protected void testQueueConcurrently(QueueWithStatistic<String> queue, int inserts, int attemptsPerInsert, int getters, String testName, int threshold) {
+    protected void testQueueConcurrently(Queue<String> queue, int inserts, int attemptsPerInsert, int getters, String testName, int threshold) {
         ByteArrayOutputStream out = new ByteArrayOutputStream();
         PrintStream printStream = System.out;//new PrintStream(out);
         printStream.println("START " + testName);
@@ -153,7 +154,7 @@ public abstract class BaseArrayQueueTest {
 
         printStream.println(queue.getClass().getName() + " statistic:");
 
-        queue.printStatistic(printStream);
+        printStatistic(queue, printStream);
         try {
             Assert.assertEquals(sourceValues.size(), results.size());
             Collections.sort(sourceValues);
@@ -171,6 +172,12 @@ public abstract class BaseArrayQueueTest {
         }
     }
 
+    private void printStatistic(Queue<String> queue, PrintStream printStream) {
+        if(queue instanceof QueueWithStatistic) {
+            ((QueueWithStatistic)queue).printStatistic(printStream);
+        }
+    }
+
     protected void endingWait(CountDownLatch endTrigger, int timeout) {
         try {
             endTrigger.await(timeout, TimeUnit.SECONDS);
@@ -179,7 +186,7 @@ public abstract class BaseArrayQueueTest {
         }
     }
 
-    private Runnable createGetter(final QueueWithStatistic<String> queue, final int attemptsPerGet,
+    private Runnable createGetter(final Queue<String> queue, final int attemptsPerGet,
                                   final Collection<String> results,
                                   final CountDownLatch startTrigger, final CountDownLatch endTrigger,
                                   final AtomicLong pollFailCounter, final int threshold) {
@@ -202,7 +209,7 @@ public abstract class BaseArrayQueueTest {
                             fails++;
                             if (fails > threshold) {
                                 System.out.println(queue);
-                                queue.printStatistic(System.out);
+                                printStatistic(queue, System.out);
                                 throw new IllegalStateException(fails + " fails");
                             }
                         } else {
@@ -217,7 +224,7 @@ public abstract class BaseArrayQueueTest {
         };
     }
 
-    protected Runnable createInserter(final QueueWithStatistic<String> queue, final int attemptsPerInsert, final CountDownLatch startTrigger,
+    protected Runnable createInserter(final Queue<String> queue, final int attemptsPerInsert, final CountDownLatch startTrigger,
                                       final CountDownLatch endTrigger, final AtomicLong offerFailCounter) {
         return new Runnable() {
             public void run() {
@@ -237,7 +244,7 @@ public abstract class BaseArrayQueueTest {
                             fails++;
                             if (fails > 100_000_000) {
                                 System.out.println(queue);
-                                queue.printStatistic(System.out);
+                                printStatistic(queue, System.out);
                                 throw new IllegalStateException(fails + " fails");
                             }
                         } else {
@@ -268,7 +275,7 @@ public abstract class BaseArrayQueueTest {
         Assert.assertTrue(queue.poll() == null);
     }
 
-    protected abstract QueueWithStatistic<String> createQueue(int capacity, boolean writeStatistic);
+    protected abstract Queue<String> createQueue(int capacity, boolean writeStatistic);
 
     @Test
     public void testTwo() {

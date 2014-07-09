@@ -22,7 +22,7 @@ public class LQ_Benchmark1 {
     public int readers;
     @Param({"10000", "1000000", "10000000"})
     public int capacity;
-    @Param({"false"})
+    //@Param({"false"})
     private boolean writeStatistic;
     public Service service;
 

@@ -1,17 +1,29 @@
-package buls.util.concurrent;
+package buls.util.concurrent.research;
 
+import buls.util.concurrent.AbstractConcurrentArrayQueue;
+import buls.util.concurrent.ConcurrentArrayQueue;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 import java.io.PrintStream;
+import java.util.concurrent.atomic.LongAdder;
 
 /**
  * Created by Bulgakov Alex on 31.05.2014.
  */
-public class ConcurrentArrayQueue<E> extends AbstractConcurrentArrayQueue<E> {
+public class ConcurrentArrayQueueWriteStatistic<E> extends ConcurrentArrayQueue<E> implements QueueWithStatistic<E> {
 
-    public ConcurrentArrayQueue(int capacity) {
+    protected final LongAdder successSet = new LongAdder();
+    protected final LongAdder failSet = new LongAdder();
+    protected final LongAdder failLockedSet = new LongAdder();
+    protected final LongAdder successGet = new LongAdder();
+    protected final LongAdder failGet = new LongAdder();
+
+    protected final boolean writeStatistic;
+
+    public ConcurrentArrayQueueWriteStatistic(int capacity, boolean writeStatistic) {
         super(capacity);
+        this.writeStatistic = writeStatistic;
     }
 
     @Override
@@ -67,19 +79,30 @@ public class ConcurrentArrayQueue<E> extends AbstractConcurrentArrayQueue<E> {
         return null;
     }
 
-    protected void failGet() {
-
+    protected final void failGet() {
+        if (writeStatistic) failGet.increment();
     }
 
-    protected void successGet() {
-
+    protected final void successGet() {
+        if (writeStatistic) successGet.increment();
     }
 
-    protected void failSet() {
-
+    protected final void failSet() {
+        if (writeStatistic) failSet.increment();
     }
 
-    protected void successSet() {
+    protected final void successSet() {
+        if (writeStatistic) successSet.increment();
+    }
 
+    @Override
+    public void printStatistic(@NotNull PrintStream printStream) {
+        if (writeStatistic) {
+            printStream.println("success sets " + successSet);
+            printStream.println("fail sets " + failSet);
+            printStream.println("fail locked sets " + failLockedSet);
+            printStream.println("success gets " + successGet);
+            printStream.println("fail gets " + failGet);
+        }
     }
 }

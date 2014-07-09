@@ -9,11 +9,11 @@ import java.util.concurrent.Semaphore;
  * Created by Alex on 22.06.2014.
  */
 @Deprecated
-public class ConcurrentArrayQueue5<E> extends ConcurrentArrayQueue<E> {
+public class ConcurrentArrayQueueWithSemaphore<E> extends ConcurrentArrayQueueWriteStatistic<E> {
     @NotNull
     private final Semaphore setSemaphore;
 
-    public ConcurrentArrayQueue5(int capacity, boolean writeStatistic, int concurrentSets) {
+    public ConcurrentArrayQueueWithSemaphore(int capacity, boolean writeStatistic, int concurrentSets) {
         super(capacity, writeStatistic);
         setSemaphore = new Semaphore(concurrentSets);
     }
