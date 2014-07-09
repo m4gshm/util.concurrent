@@ -23,7 +23,7 @@ public abstract class AbstractNoBlockingQueueService extends AbstractServiceStat
         @NotNull final AbstractExecutor executor = createExecutor();
         @NotNull final Queue<Runnable> queue = createQueue();
         return new NoBlockingQueueConcurrentService(getClass().getSimpleName(), threads,
-                writeStatistic, writeStatistic, true, executor, queue);
+                writeStatistic, writeStatistic, false, executor, queue);
 
     }
 

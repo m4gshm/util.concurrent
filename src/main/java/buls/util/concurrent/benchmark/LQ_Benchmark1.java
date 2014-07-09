@@ -12,20 +12,20 @@ import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
 
 @State(Scope.Benchmark)
-@OutputTimeUnit(TimeUnit.NANOSECONDS)
-@BenchmarkMode(Mode.AverageTime)
+@OutputTimeUnit(TimeUnit.MILLISECONDS)
+@BenchmarkMode(Mode.Throughput)
 @Warmup(time = 100, timeUnit = TimeUnit.MILLISECONDS)
 @Measurement(timeUnit = TimeUnit.MILLISECONDS, time = 100)
 public class LQ_Benchmark1 {
 
     @Param({"1", "2", "3"})
     public int readers;
-
-    @Param({"100", "1000", "10000", "1000000"})
+    @Param({"10000", "1000000", "10000000"})
     public int capacity;
-    public Service service;
     @Param({"false"})
     private boolean writeStatistic;
+    public Service service;
+
 
     @Setup(Level.Iteration)
     public void setup() {
@@ -42,12 +42,6 @@ public class LQ_Benchmark1 {
             e.printStackTrace();
         }
     }
-
-//    @Threads(1)
-//    @Benchmark
-//    public void _1_threads() {
-//        sendMessage();
-//    }
 
     @Threads(2)
     @Benchmark
@@ -70,6 +64,12 @@ public class LQ_Benchmark1 {
     @Threads(5)
     @Benchmark
     public void _5_threads() {
+        sendMessage();
+    }
+
+    @Threads(6)
+    @Benchmark
+    public void _6_threads() {
         sendMessage();
     }
 

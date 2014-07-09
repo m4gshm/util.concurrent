@@ -398,7 +398,8 @@ public abstract class ConcurrentService extends AbstractService {
             if (interrupted) {
                 executionAfterInterruption();
             }
-            assert getQueue().isEmpty();
+            Queue queue = getQueue();
+            assert queue.isEmpty() : queue;
         }
 
         private void executionAfterInterruption() {

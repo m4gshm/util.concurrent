@@ -6,12 +6,21 @@ buildscript {
         }
     }
     dependencies {
+        classpath 'com.github.jengelman.gradle.plugins:shadow:0.8'
         classpath 'com.jimdo.gradle:gradle-apt-plugin:0.5-SNAPSHOT@jar'
     }
 }
 apply plugin: 'java'
 apply plugin: 'apt'
+apply plugin: 'shadow'
 
+version = '1.0'
+
+jar {
+    manifest {
+        attributes('Main-Class': 'org.openjdk.jmh.Main')
+    }
+}
 
 compileJava.options.encoding = 'UTF-8'
 
