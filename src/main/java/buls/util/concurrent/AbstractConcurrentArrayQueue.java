@@ -21,14 +21,17 @@ public abstract class AbstractConcurrentArrayQueue<E> extends AbstractArrayQueue
 
     protected final AtomicLong tailSequence = new AtomicLong();
     protected final AtomicLong headSequence = new AtomicLong();
-    @NotNull
-    final AtomicLongArray levels;
+
     @NotNull
     private final Object[] elements;
-    private volatile boolean tailOverflow;
+    @NotNull
+    AtomicLongArray levels;
 
-    public AbstractConcurrentArrayQueue(int capacity) {
+    private final boolean checkInterruption;
+
+    protected AbstractConcurrentArrayQueue(int capacity, boolean checkInterruption) {
         super(capacity);
+        this.checkInterruption = checkInterruption;
         this.elements = new Object[capacity];
         levels = new AtomicLongArray(capacity);
     }
@@ -78,12 +81,22 @@ public abstract class AbstractConcurrentArrayQueue<E> extends AbstractArrayQueue
         final long delta;
         if (tail >= head) {
             delta = tail - head;
-        } else if (tailOverflow) {
-            delta = tail - 0 + max_tail() - head + 1;
         } else {
+//            while (!tailOverflow) {
+//               boolean interrupted = !isNotInterrupted();
+//                if (interrupted) {
+//                    break;
+//                }
+//            }
+//            assert tailOverflow : "tailOverflow";
+            //if (tailOverflow) {
+            delta = tail - 0 + max_tail() - head + 1;
+            //} else {
             //bullshit
-            delta = tail - head;
+            //    delta = tail - head;
+            //}
         }
+        assert delta >= 0 : delta + " " + head + " " + tail + "\n" + this;
         return (int) delta;
     }
 
@@ -99,15 +112,15 @@ public abstract class AbstractConcurrentArrayQueue<E> extends AbstractArrayQueue
 
     protected final int set(final E e, final long tail, final long currentTail, final long head) {
         while (isNotInterrupted()) {
-            int index = computeIndex(currentTail);
-            long L1 = tailOverflow ? max_tail() + 1 : currentTail;
-            long level = beforeSetLevel(L1);
-            if (startPutting(index, level)) {
+            final int index = computeIndex(currentTail);
+            final long level = beforeSetLevel(currentTail);
+            final long level2 = (level == 0) ? beforeSetLevel(max_tail() + 1) : level;
+            if (startPutting(index, level, level2)) {
                 try {
                     _insert(e, index);
                     int result;
 
-                    setNextTail(tail, currentTail);
+                    setNextTail2(tail, currentTail);
 
                     result = SUCCESS;
                     return result;
@@ -115,7 +128,7 @@ public abstract class AbstractConcurrentArrayQueue<E> extends AbstractArrayQueue
                     finishPutting(currentTail, index);
                 }
             } else {
-                int result = failPutting(index, level, currentTail, head);
+                int result = failPutting(index, level/*, currentTail, head*/);
 
                 assert Arrays.asList(GO_NEXT, TRY_AGAIN, GET_CURRENT_TAIL).contains(result);
 
@@ -127,46 +140,7 @@ public abstract class AbstractConcurrentArrayQueue<E> extends AbstractArrayQueue
         return INTERRUPTED;
     }
 
-    protected final long computeTail(long currentTail, int calculateType) {
-        if (calculateType == GO_NEXT) {
-            currentTail++;
-        } else {
-            currentTail = getTail();
-            assert calculateType == GET_CURRENT_TAIL;
-        }
-        return currentTail;
-    }
-
-    protected final long computeHead(long head) {
-        final long h = getHead();
-        if (head < h) {
-            head = h;
-        } else {
-            head++;
-        }
-        return head;
-    }
-
-    protected final boolean checkTailOverflow(long tailForInserting, int capacity) {
-        long head = getHead();
-        long amount = tailForInserting - head;
-        return amount > capacity;
-    }
-
-    protected final boolean checkHeadOverflow(long newHead, long tail) {
-        boolean overflow;
-        if (newHead == tail) {
-
-            overflow = true;
-        } else {
-            int delta = delta(newHead, tail);
-            int capacity = capacity();
-            overflow = delta > capacity;
-        }
-        return overflow;
-    }
-
-    private int failPutting(int index, long level, long currentTail, long head) {
+    private int failPutting(int index, long level/*, long currentTail, long head*/) {
         assert level <= 0 : level;
 
         final long current = _level(index);
@@ -211,10 +185,6 @@ public abstract class AbstractConcurrentArrayQueue<E> extends AbstractArrayQueue
         return levels.compareAndSet(index, expect, update);
     }
 
-    private boolean startPutting(int index, long level) {
-        return _levelCas(index, level, PUTTING);
-    }
-
     private void finishPutting(long currentTail, int index) {
         long nextLevel = afterSetLevel(currentTail);
         long expect = PUTTING;
@@ -240,6 +210,11 @@ public abstract class AbstractConcurrentArrayQueue<E> extends AbstractArrayQueue
         return -beforeGetLevel(currentHead);
     }
 
+
+    private boolean startPutting(int index, long level, long level2) {
+        return _levelCas(index, level, PUTTING) || _levelCas(index, level2, PUTTING);
+    }
+
     @Nullable
     protected final E _get(int index) {
         return (E) elements[index];
@@ -258,11 +233,10 @@ public abstract class AbstractConcurrentArrayQueue<E> extends AbstractArrayQueue
     }
 
     @Nullable
-    @SuppressWarnings("unchecked")
     protected final E get(long oldHead, long currentHead, long tail, long fails) {
 
-        assert delta(oldHead, currentHead) >= 0 : oldHead + " " + currentHead + ", delta " + delta(oldHead, currentHead) + ", fails" + fails;
-        assert delta(currentHead, tail) > 0 : currentHead + " " + tail + ", delta " + delta(currentHead, tail) + ", fails" + fails;
+        assert delta(oldHead, currentHead) >= 0 : oldHead + " " + currentHead + ", delta " + delta(oldHead, currentHead) + ", fails" + fails+ "\n" +this;
+        assert delta(currentHead, tail) > 0 : currentHead + " " + tail + ", delta " + delta(currentHead, tail) + ", fails" + fails+ "\n" +this;
 
         while (isNotInterrupted()) {
             final int index = computeIndex(currentHead);
@@ -271,7 +245,7 @@ public abstract class AbstractConcurrentArrayQueue<E> extends AbstractArrayQueue
                 try {
                     final E e = _retrieve(index);
                     assert e != null;
-                    setNextHead(oldHead, currentHead);
+                    setNextHead2(oldHead, currentHead);
 
                     return e;
                 } finally {
@@ -285,7 +259,7 @@ public abstract class AbstractConcurrentArrayQueue<E> extends AbstractArrayQueue
     }
 
     protected final boolean isNotInterrupted() {
-        return true;
+        return !checkInterruption || Thread.interrupted();
     }
 
     private boolean stopTryPooling(int index, long level, long currentHead, long tail) {
@@ -337,41 +311,87 @@ public abstract class AbstractConcurrentArrayQueue<E> extends AbstractArrayQueue
         return _levelCas(index, level, POOLING);
     }
 
-    protected void setNextHead(long oldHead, long insertedHead) {
+    protected void setNextHead2(long oldHead, long insertedHead) {
         next(oldHead, insertedHead, headSequence);
     }
 
-    protected void setNextTail(long oldTail, long insertedTail) {
-        long l = next(oldTail, insertedTail, tailSequence);
-        if (l < insertedTail) {
-            tailOverflow = true;
-        } else {
-            int capacity = capacity();
-            if (tailOverflow && l >= capacity) {
-                tailOverflow = false;
-            }
-        }
+    protected void setNextTail2(long oldTail, long insertedTail) {
+        next(oldTail, insertedTail, tailSequence);
     }
 
-    private long next(final long oldVal, final long insertedVal, final @NotNull AtomicLong sequence) {
-        assert insertedVal >= oldVal;
+    private boolean next(final long oldVal, final long insertedVal, final @NotNull AtomicLong sequence) {
+//        assert insertedVal >= oldVal || (insertedVal < capacity() && oldVal <= max_tail())
+//                : insertedVal + " " + oldVal + " " + capacity() + " " + max_tail()+" " +sequence + "\n" + this;
         assert insertedVal >= 0;
         assert insertedVal <= max_tail();
 
-        final long newValue = (insertedVal == max_tail()) ? 0 : insertedVal + 1;
-        boolean set = _cas(sequence, oldVal, newValue);
+        final long newValue = _increment(insertedVal);
+        boolean overflow = newValue == 0 && insertedVal == max_tail();
+        boolean set = cas(sequence, oldVal, newValue);
         while (!set) {
             final long currentValue = sequence.get();
-            if (currentValue < newValue) {
-                set = _cas(sequence, currentValue, newValue);
+            if (!overflow) {
+                if (currentValue < newValue) {
+                    set = cas(sequence, currentValue, newValue);
+                } else {
+                    break;
+                }
             } else {
-                return insertedVal;
+                //overflow detected
+                assert insertedVal == max_tail() : insertedVal + " " + max_tail();
+                if (!(currentValue > newValue) && currentValue <= insertedVal) {
+                    set = cas(sequence, currentValue, newValue);
+                } else {
+                    break;
+                }
             }
         }
-        return newValue;
+        return set;
     }
 
-    private boolean _cas(@NotNull AtomicLong counter, long expected, long update) {
+    private long _increment(long counter) {
+        return (counter == max_tail()) ? 0 : counter + 1;
+    }
+
+    private boolean cas(@NotNull AtomicLong counter, long expected, long update) {
         return counter.compareAndSet(expected, update);
+    }
+
+    protected long computeTail(long currentTail, int calculateType) {
+        if (calculateType == GO_NEXT) {
+            currentTail = _increment(currentTail);
+        } else {
+            currentTail = getTail();
+            assert calculateType == GET_CURRENT_TAIL;
+        }
+        return currentTail;
+    }
+
+    protected final boolean checkTail(long tailForInserting, int capacity) {
+        long head = getHead();
+        long amount = delta(head, tailForInserting);
+        return amount > capacity;
+    }
+
+    protected final boolean checkHead(long headForGetting, long tail) {
+        boolean overflow;
+        if (headForGetting == tail) {
+            overflow = true;
+        } else {
+            int delta = delta(headForGetting, tail);
+            int capacity = capacity();
+            overflow = delta > capacity;
+        }
+        return overflow;
+    }
+
+    protected long computeHead(long head) {
+        final long h = getHead();
+        if (head < h) {
+            head = h;
+        } else {
+            head = _increment(head);
+        }
+        return head;
     }
 }

@@ -1,8 +1,10 @@
 package buls.util.concurrent;
 
-
 import org.junit.Assert;
 import org.junit.Test;
+
+import java.util.Queue;
+
 
 /**
  * Created by Bulgakov Alex on 31.05.2014.
@@ -11,7 +13,7 @@ public class ConcurrentArrayQueueTest extends BaseArrayQueueTest {
 
     @Override
     protected ConcurrentArrayQueue<String> createQueue(int capacity, boolean writeStatistic) {
-        return new ConcurrentArrayQueue<>(capacity/*, writeStatistic*/);
+        return new ConcurrentArrayQueue<>(capacity);
     }
 
     @Test
@@ -113,8 +115,8 @@ public class ConcurrentArrayQueueTest extends BaseArrayQueueTest {
         initQueueOverflow(queue, capacity, tail);
         char c = 'A';
         for (int i = 0; i < iterations; i++) {
-            Assert.assertTrue("" + i,queue.offer(new String(a(c++))));
-            Assert.assertTrue("" + i,queue.poll() != null);
+            Assert.assertTrue(queue.offer(new String(a(c++))));
+            Assert.assertTrue(queue.poll() != null);
         }
 
         System.out.println(queue);
@@ -159,4 +161,19 @@ public class ConcurrentArrayQueueTest extends BaseArrayQueueTest {
         testQueueConcurrently(queue, inserts, attemptsPerInsert, getters, "testInsertAnGetsInConcurrentMode4", THRESHOLD * 2);
     }
 
+    @Test
+    public void testOverflowInConcurrentMode7() {
+        int inserts = 2;
+        int attemptsPerInsert = 1_000_000;
+        int capacity = 1;
+        int getters = 2;
+
+        final ConcurrentArrayQueue<String> queue = createQueue(capacity, WRITE_STATISTIC);
+        int maxValue = queue.max_tail();
+        long tail = maxValue - (maxValue % capacity) - capacity;
+
+        initQueueOverflow(queue, capacity, tail);
+
+        testQueueConcurrently(queue, inserts, attemptsPerInsert, getters, "testInsertAnGetsInConcurrentMode4", THRESHOLD * 2);
+    }
 }

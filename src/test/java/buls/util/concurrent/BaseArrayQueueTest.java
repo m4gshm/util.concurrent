@@ -173,8 +173,8 @@ public abstract class BaseArrayQueueTest {
     }
 
     private void printStatistic(Queue<String> queue, PrintStream printStream) {
-        if(queue instanceof QueueWithStatistic) {
-            ((QueueWithStatistic)queue).printStatistic(printStream);
+        if(queue instanceof QueueWithStatistic<?>) {
+            ((QueueWithStatistic) queue).printStatistic(printStream);
         }
     }
 
@@ -190,72 +190,12 @@ public abstract class BaseArrayQueueTest {
                                   final Collection<String> results,
                                   final CountDownLatch startTrigger, final CountDownLatch endTrigger,
                                   final AtomicLong pollFailCounter, final int threshold) {
-        return new Runnable() {
-
-            public void run() {
-                try {
-                    startTrigger.await();
-                } catch (InterruptedException ignored) {
-                }
-
-                try {
-                    int attempts = attemptsPerGet;
-                    long fails = 0;
-                    while (attempts > 0) {
-                        String poll = queue.poll();
-                        if (poll == null) {
-                            pollFailCounter.incrementAndGet();
-                            Thread.yield();
-                            fails++;
-                            if (fails > threshold) {
-                                System.out.println(queue);
-                                printStatistic(queue, System.out);
-                                throw new IllegalStateException(fails + " fails");
-                            }
-                        } else {
-                            results.add(poll);
-                            --attempts;
-                        }
-                    }
-                } finally {
-                    endTrigger.countDown();
-                }
-            }
-        };
+        return new GetterRunnable(startTrigger, attemptsPerGet, queue, pollFailCounter, threshold, results, endTrigger);
     }
 
     protected Runnable createInserter(final Queue<String> queue, final int attemptsPerInsert, final CountDownLatch startTrigger,
                                       final CountDownLatch endTrigger, final AtomicLong offerFailCounter) {
-        return new Runnable() {
-            public void run() {
-                try {
-                    startTrigger.await();
-                } catch (InterruptedException ignored) {
-                }
-                try {
-                    int attempts = attemptsPerInsert;
-                    long fails = 0;
-                    while (attempts > 0) {
-                        String name = Thread.currentThread().getName() + "-" + (attempts - 1);
-                        boolean offer = queue.offer(name);
-                        if (!offer) {
-                            offerFailCounter.incrementAndGet();
-                            Thread.yield();
-                            fails++;
-                            if (fails > 100_000_000) {
-                                System.out.println(queue);
-                                printStatistic(queue, System.out);
-                                throw new IllegalStateException(fails + " fails");
-                            }
-                        } else {
-                            --attempts;
-                        }
-                    }
-                } finally {
-                    endTrigger.countDown();
-                }
-            }
-        };
+        return new InserterRunnable(startTrigger, attemptsPerInsert, queue, offerFailCounter, endTrigger);
     }
 
 
@@ -324,5 +264,101 @@ public abstract class BaseArrayQueueTest {
         Assert.assertEquals("Два", queue.poll());
 
         Assert.assertTrue(queue.offer("Четыре"));
+    }
+
+    private class GetterRunnable implements Runnable {
+
+        private final CountDownLatch startTrigger;
+        private final int attemptsPerGet;
+        private final Queue<String> queue;
+        private final AtomicLong pollFailCounter;
+        private final int threshold;
+        private final Collection<String> results;
+        private final CountDownLatch endTrigger;
+
+        public GetterRunnable(CountDownLatch startTrigger, int attemptsPerGet, Queue<String> queue, AtomicLong pollFailCounter, int threshold, Collection<String> results, CountDownLatch endTrigger) {
+            this.startTrigger = startTrigger;
+            this.attemptsPerGet = attemptsPerGet;
+            this.queue = queue;
+            this.pollFailCounter = pollFailCounter;
+            this.threshold = threshold;
+            this.results = results;
+            this.endTrigger = endTrigger;
+        }
+
+        public void run() {
+            try {
+                startTrigger.await();
+            } catch (InterruptedException ignored) {
+            }
+
+            try {
+                int attempts = attemptsPerGet;
+                long fails = 0;
+                while (attempts > 0) {
+                    String poll = queue.poll();
+                    if (poll == null) {
+                        pollFailCounter.incrementAndGet();
+                        Thread.yield();
+                        fails++;
+                        if (fails > threshold) {
+                            System.out.println(queue);
+                            printStatistic(queue, System.out);
+                            throw new IllegalStateException(fails + " fails");
+                        }
+                    } else {
+                        results.add(poll);
+                        --attempts;
+                    }
+                }
+            } finally {
+                endTrigger.countDown();
+            }
+        }
+    }
+
+    private class InserterRunnable implements Runnable {
+        private final CountDownLatch startTrigger;
+        private final int attemptsPerInsert;
+        private final Queue<String> queue;
+        private final AtomicLong offerFailCounter;
+        private final CountDownLatch endTrigger;
+
+        public InserterRunnable(CountDownLatch startTrigger, int attemptsPerInsert, Queue<String> queue, AtomicLong offerFailCounter, CountDownLatch endTrigger) {
+            this.startTrigger = startTrigger;
+            this.attemptsPerInsert = attemptsPerInsert;
+            this.queue = queue;
+            this.offerFailCounter = offerFailCounter;
+            this.endTrigger = endTrigger;
+        }
+
+        public void run() {
+            try {
+                startTrigger.await();
+            } catch (InterruptedException ignored) {
+            }
+            try {
+                int attempts = attemptsPerInsert;
+                long fails = 0;
+                while (attempts > 0) {
+                    String name = Thread.currentThread().getName() + "-" + (attempts - 1);
+                    boolean offer = queue.offer(name);
+                    if (!offer) {
+                        offerFailCounter.incrementAndGet();
+                        Thread.yield();
+                        fails++;
+                        if (fails > 100_000_000) {
+                            System.out.println(queue);
+                            printStatistic(queue, System.out);
+                            throw new IllegalStateException(fails + " fails");
+                        }
+                    } else {
+                        --attempts;
+                    }
+                }
+            } finally {
+                endTrigger.countDown();
+            }
+        }
     }
 }

@@ -9,7 +9,7 @@ import java.util.concurrent.Semaphore;
  * Created by Alex on 22.06.2014.
  */
 @Deprecated
-public class ConcurrentArrayQueueWithSemaphore<E> extends ConcurrentArrayQueueWriteStatistic<E> {
+public class ConcurrentArrayQueueWithSemaphore<E> extends ConcurrentArrayQueueWithStatistic<E> {
     @NotNull
     private final Semaphore setSemaphore;
 

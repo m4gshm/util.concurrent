@@ -3,15 +3,13 @@ package buls.util.concurrent;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
-import java.io.PrintStream;
-
 /**
  * Created by Bulgakov Alex on 31.05.2014.
  */
 public class ConcurrentArrayQueue<E> extends AbstractConcurrentArrayQueue<E> {
 
     public ConcurrentArrayQueue(int capacity) {
-        super(capacity);
+        super(capacity, false);
     }
 
     @Override
@@ -28,7 +26,7 @@ public class ConcurrentArrayQueue<E> extends AbstractConcurrentArrayQueue<E> {
                 failSet();
                 currentTail = computeTail(currentTail, res);
 
-                boolean overflow = checkTailOverflow(currentTail, capacity);
+                boolean overflow = checkTail(currentTail, capacity);
                 if (overflow) {
                     return false;
                 }
@@ -36,7 +34,6 @@ public class ConcurrentArrayQueue<E> extends AbstractConcurrentArrayQueue<E> {
         }
         return false;
     }
-
 
     @Nullable
     @Override
@@ -57,7 +54,7 @@ public class ConcurrentArrayQueue<E> extends AbstractConcurrentArrayQueue<E> {
                 currentHead = computeHead(currentHead);
                 long t = getTail();
 
-                if (checkHeadOverflow(currentHead, t)) {
+                if (checkHead(currentHead, t)) {
                     return null;
                 }
                 assert delta(currentHead, t) > 0 : currentHead + " " + t + ", delta " + delta(currentHead, t);
@@ -68,18 +65,15 @@ public class ConcurrentArrayQueue<E> extends AbstractConcurrentArrayQueue<E> {
     }
 
     protected void failGet() {
-
     }
 
     protected void successGet() {
-
     }
 
     protected void failSet() {
-
     }
 
     protected void successSet() {
-
     }
+
 }
