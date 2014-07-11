@@ -13,7 +13,7 @@ public class ConcurrentArrayQueueTest extends BaseArrayQueueTest {
 
     @Override
     protected ConcurrentArrayQueue<String> createQueue(int capacity, boolean writeStatistic) {
-        return new ConcurrentArrayQueue<>(capacity);
+        return new ConcurrentArrayQueue<>(capacity, true);
     }
 
     @Test
@@ -158,7 +158,8 @@ public class ConcurrentArrayQueueTest extends BaseArrayQueueTest {
 
         initQueueOverflow(queue, capacity, tail);
 
-        testQueueConcurrently(queue, inserts, attemptsPerInsert, getters, "testInsertAnGetsInConcurrentMode4", THRESHOLD * 2);
+        testQueueConcurrently(queue, inserts, attemptsPerInsert, getters, "testInsertAnGetsInConcurrentMode4",
+                inserts * attemptsPerInsert, getters * attemptsPerInsert);
     }
 
     @Test
@@ -174,6 +175,7 @@ public class ConcurrentArrayQueueTest extends BaseArrayQueueTest {
 
         initQueueOverflow(queue, capacity, tail);
 
-        testQueueConcurrently(queue, inserts, attemptsPerInsert, getters, "testInsertAnGetsInConcurrentMode4", THRESHOLD * 2);
+        testQueueConcurrently(queue, inserts, attemptsPerInsert, getters, "testInsertAnGetsInConcurrentMode4",
+                inserts * attemptsPerInsert, getters * attemptsPerInsert);
     }
 }

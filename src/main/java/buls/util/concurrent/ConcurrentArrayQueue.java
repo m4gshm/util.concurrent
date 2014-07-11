@@ -9,7 +9,11 @@ import org.jetbrains.annotations.Nullable;
 public class ConcurrentArrayQueue<E> extends AbstractConcurrentArrayQueue<E> {
 
     public ConcurrentArrayQueue(int capacity) {
-        super(capacity, false);
+        this(capacity, false);
+    }
+
+    public ConcurrentArrayQueue(int capacity, boolean checkInterruption) {
+        super(capacity, checkInterruption);
     }
 
     @Override
@@ -75,5 +79,4 @@ public class ConcurrentArrayQueue<E> extends AbstractConcurrentArrayQueue<E> {
 
     protected void successSet() {
     }
-
 }

@@ -259,13 +259,13 @@ public abstract class AbstractConcurrentArrayQueue<E> extends AbstractArrayQueue
     }
 
     protected final boolean isNotInterrupted() {
-        return !checkInterruption || Thread.interrupted();
+        return !(checkInterruption && Thread.interrupted());
     }
 
     private boolean stopTryPooling(int index, long level, long currentHead, long tail) {
         assert level > 0;
         final long current = _level(index);
-        assert current != 0;
+        assert current != 0: current +" "+level +" "+currentHead +" " +tail +"\n"+this;
         if (current == PUTTING) {
             return false;
         } else if (level == current) {

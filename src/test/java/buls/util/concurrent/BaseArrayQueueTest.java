@@ -4,7 +4,6 @@ import buls.util.concurrent.research.QueueWithStatistic;
 import org.junit.Assert;
 import org.junit.Test;
 
-
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.PrintStream;
@@ -91,13 +90,15 @@ public abstract class BaseArrayQueueTest {
     }
 
 
-    private void testQueueConcurrently(int capacity, int inserts, int attemptsPerInsert, int getters, String testName, int threshold) {
+    private void testQueueConcurrently(int capacity, int inserts, int attemptsPerInsert, int getters,
+                                       String testName, int threshold) {
         final Queue<String> queue = createQueue(capacity, WRITE_STATISTIC);
 
-        testQueueConcurrently(queue, inserts, attemptsPerInsert, getters, testName, threshold);
+        testQueueConcurrently(queue, inserts, attemptsPerInsert, getters, testName, threshold, threshold);
     }
 
-    protected void testQueueConcurrently(Queue<String> queue, int inserts, int attemptsPerInsert, int getters, String testName, int threshold) {
+    protected void testQueueConcurrently(Queue<String> queue, int inserts, int attemptsPerInsert, int getters,
+                                         String testName, int getterThreshold, int inserterThreshold) {
         ByteArrayOutputStream out = new ByteArrayOutputStream();
         PrintStream printStream = System.out;//new PrintStream(out);
         printStream.println("START " + testName);
@@ -121,7 +122,8 @@ public abstract class BaseArrayQueueTest {
             for (int attempt = 0; attempt < attemptsPerInsert; ++attempt) {
                 sourceValues.add(name + "-" + attempt);
             }
-            Runnable runner = createInserter(queue, attemptsPerInsert, startTrigger, endTrigger, offerFailCounter);
+            Runnable runner = createInserter(queue, attemptsPerInsert, startTrigger, endTrigger,
+                    offerFailCounter, threads, inserterThreshold);
             Thread thread = new Thread(runner, name);
             threads.add(thread);
             thread.start();
@@ -129,7 +131,8 @@ public abstract class BaseArrayQueueTest {
 
         List<String> results = Collections.synchronizedList(new ArrayList<String>(inserts));
         for (int i = 0; i < getters; ++i) {
-            Runnable runner = createGetter(queue, attemptsPerGet, results, startTrigger, endTrigger, pollFailCounter, threshold);
+            Runnable runner = createGetter(queue, attemptsPerGet, results, startTrigger, endTrigger,
+                    pollFailCounter, threads, getterThreshold);
             Thread thread = new Thread(runner, "get-thread-" + i);
             threads.add(thread);
             thread.start();
@@ -173,7 +176,7 @@ public abstract class BaseArrayQueueTest {
     }
 
     private void printStatistic(Queue<String> queue, PrintStream printStream) {
-        if(queue instanceof QueueWithStatistic<?>) {
+        if (queue instanceof QueueWithStatistic<?>) {
             ((QueueWithStatistic) queue).printStatistic(printStream);
         }
     }
@@ -189,13 +192,13 @@ public abstract class BaseArrayQueueTest {
     private Runnable createGetter(final Queue<String> queue, final int attemptsPerGet,
                                   final Collection<String> results,
                                   final CountDownLatch startTrigger, final CountDownLatch endTrigger,
-                                  final AtomicLong pollFailCounter, final int threshold) {
-        return new GetterRunnable(startTrigger, attemptsPerGet, queue, pollFailCounter, threshold, results, endTrigger);
+                                  final AtomicLong pollFailCounter, List<Thread> threads, final int threshold) {
+        return new GetterRunnable(startTrigger, attemptsPerGet, queue, pollFailCounter, endTrigger, results, threads, threshold);
     }
 
     protected Runnable createInserter(final Queue<String> queue, final int attemptsPerInsert, final CountDownLatch startTrigger,
-                                      final CountDownLatch endTrigger, final AtomicLong offerFailCounter) {
-        return new InserterRunnable(startTrigger, attemptsPerInsert, queue, offerFailCounter, endTrigger);
+                                      final CountDownLatch endTrigger, final AtomicLong offerFailCounter, List<Thread> threads, int threshold) {
+        return new InserterRunnable(startTrigger, attemptsPerInsert, queue, offerFailCounter, endTrigger, threads, threshold);
     }
 
 
@@ -266,21 +269,35 @@ public abstract class BaseArrayQueueTest {
         Assert.assertTrue(queue.offer("Четыре"));
     }
 
+    private void checkFail(long fails, int threshold, Queue queue, List<Thread> threads) {
+        if (fails > threshold) {
+            System.out.println(queue);
+            printStatistic(queue, System.out);
+            for (Thread thread : threads) {
+                thread.interrupt();
+            }
+            throw new IllegalStateException(fails + " fails, " + queue);
+        }
+    }
+
     private class GetterRunnable implements Runnable {
 
         private final CountDownLatch startTrigger;
         private final int attemptsPerGet;
         private final Queue<String> queue;
         private final AtomicLong pollFailCounter;
+        private final List<Thread> threads;
         private final int threshold;
         private final Collection<String> results;
         private final CountDownLatch endTrigger;
 
-        public GetterRunnable(CountDownLatch startTrigger, int attemptsPerGet, Queue<String> queue, AtomicLong pollFailCounter, int threshold, Collection<String> results, CountDownLatch endTrigger) {
+        public GetterRunnable(CountDownLatch startTrigger, int attemptsPerGet, Queue<String> queue, AtomicLong pollFailCounter,
+                              CountDownLatch endTrigger, Collection<String> results, List<Thread> threads, int threshold) {
             this.startTrigger = startTrigger;
             this.attemptsPerGet = attemptsPerGet;
             this.queue = queue;
             this.pollFailCounter = pollFailCounter;
+            this.threads = threads;
             this.threshold = threshold;
             this.results = results;
             this.endTrigger = endTrigger;
@@ -301,11 +318,7 @@ public abstract class BaseArrayQueueTest {
                         pollFailCounter.incrementAndGet();
                         Thread.yield();
                         fails++;
-                        if (fails > threshold) {
-                            System.out.println(queue);
-                            printStatistic(queue, System.out);
-                            throw new IllegalStateException(fails + " fails");
-                        }
+                        checkFail(fails, threshold, queue, threads);
                     } else {
                         results.add(poll);
                         --attempts;
@@ -315,6 +328,8 @@ public abstract class BaseArrayQueueTest {
                 endTrigger.countDown();
             }
         }
+
+
     }
 
     private class InserterRunnable implements Runnable {
@@ -323,13 +338,18 @@ public abstract class BaseArrayQueueTest {
         private final Queue<String> queue;
         private final AtomicLong offerFailCounter;
         private final CountDownLatch endTrigger;
+        private final List<Thread> threads;
+        private final int threshold;
 
-        public InserterRunnable(CountDownLatch startTrigger, int attemptsPerInsert, Queue<String> queue, AtomicLong offerFailCounter, CountDownLatch endTrigger) {
+        public InserterRunnable(CountDownLatch startTrigger, int attemptsPerInsert, Queue<String> queue,
+                                AtomicLong offerFailCounter, CountDownLatch endTrigger, List<Thread> threads, int threshold) {
             this.startTrigger = startTrigger;
             this.attemptsPerInsert = attemptsPerInsert;
             this.queue = queue;
             this.offerFailCounter = offerFailCounter;
             this.endTrigger = endTrigger;
+            this.threads = threads;
+            this.threshold = threshold;
         }
 
         public void run() {
@@ -347,11 +367,7 @@ public abstract class BaseArrayQueueTest {
                         offerFailCounter.incrementAndGet();
                         Thread.yield();
                         fails++;
-                        if (fails > 100_000_000) {
-                            System.out.println(queue);
-                            printStatistic(queue, System.out);
-                            throw new IllegalStateException(fails + " fails");
-                        }
+                        checkFail(fails, threshold, queue, threads);
                     } else {
                         --attempts;
                     }
@@ -361,4 +377,5 @@ public abstract class BaseArrayQueueTest {
             }
         }
     }
+
 }

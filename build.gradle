@@ -27,6 +27,7 @@ compileJava.options.encoding = 'UTF-8'
 test {
 //    useTestNG()
     testLogging.showStandardStreams = true
+    enableAssertions = true;
 }
 
 repositories {
