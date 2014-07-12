@@ -89,7 +89,6 @@ public abstract class BaseArrayQueueTest {
         testQueueConcurrently(capacity, inserts, attemptsPerInsert, getters, "testInsertAnGetsInConcurrentMode4", THRESHOLD * 2);
     }
 
-
     private void testQueueConcurrently(int capacity, int inserts, int attemptsPerInsert, int getters,
                                        String testName, int threshold) {
         final Queue<String> queue = createQueue(capacity, WRITE_STATISTIC);
@@ -271,12 +270,13 @@ public abstract class BaseArrayQueueTest {
 
     private void checkFail(long fails, int threshold, Queue queue, List<Thread> threads) {
         if (fails > threshold) {
-            System.out.println(queue);
-            printStatistic(queue, System.out);
+            ByteArrayOutputStream stream = new ByteArrayOutputStream();
+            printStatistic(queue, new PrintStream(stream));
             for (Thread thread : threads) {
                 thread.interrupt();
             }
-            throw new IllegalStateException(fails + " fails, " + queue);
+            throw new IllegalStateException(fails + " fails, " +threshold +" threshold, \n"
+                    + queue+"\n"+ new String(stream.toByteArray()));
         }
     }
 
@@ -312,7 +312,7 @@ public abstract class BaseArrayQueueTest {
             try {
                 int attempts = attemptsPerGet;
                 long fails = 0;
-                while (attempts > 0) {
+                while (!Thread.interrupted() && attempts > 0) {
                     String poll = queue.poll();
                     if (poll == null) {
                         pollFailCounter.incrementAndGet();
@@ -360,7 +360,7 @@ public abstract class BaseArrayQueueTest {
             try {
                 int attempts = attemptsPerInsert;
                 long fails = 0;
-                while (attempts > 0) {
+                while (!Thread.interrupted() && attempts > 0) {
                     String name = Thread.currentThread().getName() + "-" + (attempts - 1);
                     boolean offer = queue.offer(name);
                     if (!offer) {

@@ -3,8 +3,6 @@ package buls.util.concurrent;
 import org.junit.Assert;
 import org.junit.Test;
 
-import java.util.Queue;
-
 
 /**
  * Created by Bulgakov Alex on 31.05.2014.
@@ -159,7 +157,7 @@ public class ConcurrentArrayQueueTest extends BaseArrayQueueTest {
         initQueueOverflow(queue, capacity, tail);
 
         testQueueConcurrently(queue, inserts, attemptsPerInsert, getters, "testInsertAnGetsInConcurrentMode4",
-                inserts * attemptsPerInsert, getters * attemptsPerInsert);
+                (int) (inserts * attemptsPerInsert * 1.5), (int) (getters * attemptsPerInsert * 1.5));
     }
 
     @Test
@@ -176,6 +174,6 @@ public class ConcurrentArrayQueueTest extends BaseArrayQueueTest {
         initQueueOverflow(queue, capacity, tail);
 
         testQueueConcurrently(queue, inserts, attemptsPerInsert, getters, "testInsertAnGetsInConcurrentMode4",
-                inserts * attemptsPerInsert, getters * attemptsPerInsert);
+                (int) (inserts * attemptsPerInsert * 1.5), (int) (getters * attemptsPerInsert * 1.5));
     }
 }
