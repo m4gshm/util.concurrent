@@ -54,8 +54,6 @@ public class LevelBasedConcurrentArrayQueueWithStatistic<E> extends LevelBasedCo
 
             printStream.println("fail next tail " + failNextTail);
             printStream.println("fail next head " + failNextHead);
-            printStream.print("t: "+t_1+" "+t_2+" "+t_3+" "+t_4+" "+t_5+" "+t_6+" "+t_7+" "+t_8+" "+t_9);
-            printStream.print("h: "+h_1+" "+h_2+" "+h_3+" "+h_4+" "+h_5+" "+h_6+" "+h_7+" "+h_8+" "+h_9);
         }
     }
 }

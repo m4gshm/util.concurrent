@@ -27,24 +27,6 @@ public abstract class AbstractArrayQueue<E> extends AbstractQueue<E> {
     @NotNull
     protected final Object[] elements;
     private final int MAX_TAIL;
-    protected LongAdder t_1 = new LongAdder();
-    protected LongAdder t_2 = new LongAdder();
-    protected LongAdder t_3 = new LongAdder();
-    protected LongAdder t_4 = new LongAdder();
-    protected LongAdder t_5 = new LongAdder();
-    protected LongAdder t_6 = new LongAdder();
-    protected LongAdder t_7 = new LongAdder();
-    protected LongAdder t_8 = new LongAdder();
-    protected LongAdder t_9 = new LongAdder();
-    protected LongAdder h_1 = new LongAdder();
-    protected LongAdder h_2 = new LongAdder();
-    protected LongAdder h_3 = new LongAdder();
-    protected LongAdder h_4 = new LongAdder();
-    protected LongAdder h_5 = new LongAdder();
-    protected LongAdder h_6 = new LongAdder();
-    protected LongAdder h_7 = new LongAdder();
-    protected LongAdder h_8 = new LongAdder();
-    protected LongAdder h_9 = new LongAdder();
 
     protected AbstractArrayQueue(int capacity) {
         MAX_TAIL = capacity == 0 ? 0 : (MAX_VALUE - Integer.MAX_VALUE % capacity) - 1;
@@ -140,11 +122,8 @@ public abstract class AbstractArrayQueue<E> extends AbstractQueue<E> {
 
         final long tail = getTail();
         final long head = getHead();
-
         final long size = delta(head, tail);
-//        final int POSSIBLE_ERROR = 1;
-//        assert size == 0 || size <= (capacity + POSSIBLE_ERROR)
-//                : tail +" " + head +" " + size + " " + capacity +"\n" + this;
+
         return (size < capacity) && setElement(e, tail, head);
     }
 
@@ -159,9 +138,7 @@ public abstract class AbstractArrayQueue<E> extends AbstractQueue<E> {
         final long tail = getTail();
         final long head = getHead();
         int size = delta(head, tail);
-//        final int POSSIBLE_ERROR = 1;
-//        assert size == 0 || size <= (capacity + POSSIBLE_ERROR)
-//                : tail +" " + head +" " + size + " " + capacity +"\n" + this;
+
         boolean notEmpty = size > 0;
         return notEmpty ? getElement(head, tail) : null;
     }
@@ -189,49 +166,20 @@ public abstract class AbstractArrayQueue<E> extends AbstractQueue<E> {
     }
 
     protected boolean setNextHead(long oldHead, long insertedHead) {
-        boolean next = next(oldHead, insertedHead, headSequence,
-                h_1,
-                h_2,
-                h_3,
-                h_4,
-                h_5,
-                h_6,
-                h_7,
-                h_8,
-                h_9);
+        boolean next = next(oldHead, insertedHead, headSequence);
         return next;
     }
 
     protected boolean setNextTail(long oldTail, long insertedTail) {
-        return next(oldTail, insertedTail, tailSequence,
-                t_1,
-                t_2,
-                t_3,
-                t_4,
-                t_5,
-                t_6,
-                t_7,
-                t_8,
-                t_9);
+        return next(oldTail, insertedTail, tailSequence);
     }
 
-    private boolean next(final long oldVal, final long insertedVal, final @NotNull AtomicLong sequence,
-                         LongAdder _1,
-                         LongAdder _2,
-                         LongAdder _3,
-                         LongAdder _4,
-                         LongAdder _5,
-                         LongAdder _6,
-                         LongAdder _7,
-                         LongAdder _8,
-                         LongAdder _9) {
+    private boolean next(final long oldVal, final long insertedVal, final @NotNull AtomicLong sequence) {
         assert insertedVal >= 0;
         assert insertedVal <= max_tail();
 
         final boolean ivOverflow = oldVal > insertedVal;
-
         final long newValue = _increment(insertedVal);
-
         final boolean nvOverflow = newValue == 0 && insertedVal == max_tail();
 
         assert !(nvOverflow && ivOverflow) : oldVal + " " + newValue + " " + insertedVal + " " + max_tail();
@@ -240,12 +188,12 @@ public abstract class AbstractArrayQueue<E> extends AbstractQueue<E> {
         while (!set) {
             final long currentValue = sequence.get();
 
-            if (ivOverflow) {
-                boolean tailRange = currentValue > oldVal
-                        //&& currentValue > (max_tail() - capacity())
-                        && currentValue <= max_tail();
+            boolean tailRange = currentValue > oldVal
+                    //&& currentValue > (max_tail() - capacity())
+                    && currentValue <= max_tail();
+            boolean headRange = currentValue < newValue;
 
-                boolean headRange = currentValue < newValue;
+            if (ivOverflow) {
 
                 assert !(tailRange && headRange) : tailRange + " " + headRange + " "
                         + oldVal + " " + insertedVal + " " + newValue + " " + currentValue + " " + max_tail()
@@ -253,50 +201,26 @@ public abstract class AbstractArrayQueue<E> extends AbstractQueue<E> {
 
                 if (tailRange || headRange) {
                     set = cas(sequence, currentValue, newValue);
-                    if (set) {
-                        _1.increment();
-                    } else {
-                        _2.increment();
-                    }
                 } else {
-                    _3.increment();
                     set = false;
                     break;
                 }
             } else if (nvOverflow) {
                 assert insertedVal == max_tail() : insertedVal + " " + max_tail();
 
-                boolean tailRange = currentValue > oldVal
-                        //&& currentValue > (max_tail() - capacity())
-                        && currentValue <= max_tail();
-
-                boolean headRange = currentValue < newValue;
-
                 assert !(tailRange && headRange) : tailRange + " " + headRange + " "
                         + oldVal + " " + insertedVal + " " + newValue + " " + currentValue + "\n" + this;
 
                 if (tailRange || headRange) {
                     set = cas(sequence, currentValue, newValue);
-                    if (set) {
-                        _4.increment();
-                    } else {
-                        _5.increment();
-                    }
                 } else {
-                    _6.increment();
                     set = false;
                     break;
                 }
             } else {
                 if (currentValue < newValue) {
                     set = cas(sequence, currentValue, newValue);
-                    if (set) {
-                        _7.increment();
-                    } else {
-                        _8.increment();
-                    }
                 } else {
-                    _9.increment();
                     set = false;
                     break;
                 }

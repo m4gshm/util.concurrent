@@ -5,6 +5,7 @@ import org.jetbrains.annotations.Nullable;
 import sun.misc.Unsafe;
 
 import java.lang.reflect.Field;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.LongAdder;
 
 /**
@@ -39,24 +40,16 @@ public class SimpleConcurrentArrayQueue<E> extends AbstractConcurrentArrayQueue<
         shift = 31 - Integer.numberOfLeadingZeros(scale);
     }
 
-    private static final long lockOffset;
-
-    static {
-        try {
-            lockOffset = unsafe.objectFieldOffset
-                    (SimpleConcurrentArrayQueue.class.getDeclaredField("lock"));
-        } catch (Exception ex) {
-            throw new Error(ex);
-        }
-    }
-
     protected final LongAdder aheadHead = new LongAdder();
     protected final LongAdder tailBefore = new LongAdder();
     protected final LongAdder aheadHead2 = new LongAdder();
     protected final LongAdder tailBefore2 = new LongAdder();
     protected final LongAdder lostSetRevert = new LongAdder();
     protected final LongAdder lostGetRevert = new LongAdder();
-    private volatile int lock;
+
+    private final AtomicBoolean setLock = new AtomicBoolean();
+    private final AtomicBoolean getLock = new AtomicBoolean();
+
 
     public SimpleConcurrentArrayQueue(int capacity) {
         this(capacity, true);
@@ -74,7 +67,24 @@ public class SimpleConcurrentArrayQueue<E> extends AbstractConcurrentArrayQueue<
     protected final int set(@NotNull final E e, final long tail, final long currentTail, final long head) {
         final int index = computeIndex(currentTail);
         if (_insert(e, index)) {
-            setNextTail(tail, currentTail);
+            boolean success = setNextTail(tail, currentTail);
+            assert success : tail + " " + currentTail + "\n" + this;
+
+            //check inserting behind head
+            lock(getLock);
+            try {
+                long h = getHead();
+                boolean taiOverflow = currentTail < tail;
+                if (!taiOverflow) {
+                    boolean behindHead = !(h <= currentTail);
+                    if (behindHead) {
+                        //behind head detected;
+                        //todo доделать;
+                    }
+                }
+            } finally {
+                unlock(getLock);
+            }
             return SUCCESS;
         } else {
             return GET_CURRENT_TAIL;
@@ -83,12 +93,13 @@ public class SimpleConcurrentArrayQueue<E> extends AbstractConcurrentArrayQueue<
 
     @Override
     @Nullable
-    protected final E get(long oldHead, long currentHead, long tail, long fails) {
+    protected final E get(long head, long currentHead, long tail, long fails) {
 
         final int index = computeIndex(currentHead);
         E e = _retrieve(index);
         if (e != null) {
-            setNextHead(oldHead, currentHead);
+            boolean success = setNextHead(head, currentHead);
+            assert success : head + " " + currentHead + "\n" + this;
             return e;
         }
         return null;
@@ -96,29 +107,29 @@ public class SimpleConcurrentArrayQueue<E> extends AbstractConcurrentArrayQueue<
 
     @Override
     public boolean offer(@Nullable E e) {
-        lock();
+        lock(setLock);
         try {
             return super.offer(e);
         } finally {
-            unlock();
+            unlock(setLock);
         }
     }
 
     @Nullable
     @Override
     public E poll() {
-        lock();
+        lock(getLock);
         try {
             return super.poll();
         } finally {
-            unlock();
+            unlock(getLock);
         }
     }
 
-    private boolean lock() {
+    private boolean lock(AtomicBoolean locker) {
         boolean lock = false;
         while (isNotInterrupted()) {
-            lock = unsafe.compareAndSwapInt(this, lockOffset, 0, 1);
+            lock = locker.compareAndSet(false, true);
             if (lock) {
                 break;
             }
@@ -126,10 +137,10 @@ public class SimpleConcurrentArrayQueue<E> extends AbstractConcurrentArrayQueue<
         return lock;
     }
 
-    private boolean unlock() {
+    private boolean unlock(AtomicBoolean locker) {
         boolean unlock = false;
         while (isNotInterrupted()) {
-            unlock = unsafe.compareAndSwapInt(this, lockOffset, 1, 0);
+            unlock = locker.compareAndSet(true, false);
             if (unlock) {
                 break;
             }

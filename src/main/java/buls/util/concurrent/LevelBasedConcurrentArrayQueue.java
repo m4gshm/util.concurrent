@@ -143,9 +143,9 @@ public class LevelBasedConcurrentArrayQueue<E> extends AbstractConcurrentArrayQu
     }
 
     @Nullable
-    protected final E get(long oldHead, long currentHead, long tail, long fails) {
+    protected final E get(long head, long currentHead, long tail, long fails) {
 
-        assert delta(oldHead, currentHead) >= 0 : oldHead + " " + currentHead + ", delta " + delta(oldHead, currentHead) + ", fails" + fails+ "\n" +this;
+        assert delta(head, currentHead) >= 0 : head + " " + currentHead + ", delta " + delta(head, currentHead) + ", fails" + fails+ "\n" +this;
         assert delta(currentHead, tail) > 0 : currentHead + " " + tail + ", delta " + delta(currentHead, tail) + ", fails" + fails+ "\n" +this;
 
         while (isNotInterrupted()) {
@@ -155,7 +155,7 @@ public class LevelBasedConcurrentArrayQueue<E> extends AbstractConcurrentArrayQu
                 try {
                     final E e = _retrieve(index);
                     assert e != null;
-                    setNextHead(oldHead, currentHead);
+                    setNextHead(head, currentHead);
 
                     return e;
                 } finally {
