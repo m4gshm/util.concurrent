@@ -86,7 +86,17 @@ public abstract class BaseArrayQueueTest {
         int capacity = 5;
         int getters = 1;
 
-        testQueueConcurrently(capacity, inserts, attemptsPerInsert, getters, "testInsertAnGetsInConcurrentMode4", THRESHOLD * 2);
+        testQueueConcurrently(capacity, inserts, attemptsPerInsert, getters, "testInsertAnGetsInConcurrentMode6", THRESHOLD * 2);
+    }
+
+    @Test
+    public void testInsertAnGetsInConcurrentMode7() {
+        int inserts = 3;
+        int attemptsPerInsert = 100_000;
+        int capacity = 10;
+        int getters = 2;
+
+        testQueueConcurrently(capacity, inserts, attemptsPerInsert, getters, "testInsertAnGetsInConcurrentMode7", THRESHOLD * 2);
     }
 
     private void testQueueConcurrently(int capacity, int inserts, int attemptsPerInsert, int getters,
@@ -133,6 +143,7 @@ public abstract class BaseArrayQueueTest {
             Runnable runner = createGetter(queue, attemptsPerGet, results, startTrigger, endTrigger,
                     pollFailCounter, threads, getterThreshold);
             Thread thread = new Thread(runner, "get-thread-" + i);
+            thread.setDaemon(true);
             threads.add(thread);
             thread.start();
         }

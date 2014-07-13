@@ -13,7 +13,7 @@ import java.util.concurrent.locks.ReentrantLock;
  * Created by Bulgakov Alex on 31.05.2014.
  */
 @Deprecated
-public class ConcurrentArrayQueueWithLockByDemand<E> extends ConcurrentArrayQueueWithStatistic<E> {
+public class ConcurrentArrayQueueWithLockByDemand<E> extends LevelBasedConcurrentArrayQueueWithStatistic<E> {
 
     public static final int SET_FAILS = 100;
     public static final int GET_FAILS = 100;

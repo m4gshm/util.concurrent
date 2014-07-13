@@ -1,9 +1,7 @@
 package buls.util.concurrent.research;
 
-import buls.util.concurrent.AbstractConcurrentArrayQueue;
-import buls.util.concurrent.ConcurrentArrayQueue;
+import buls.util.concurrent.SimpleConcurrentArrayQueue;
 import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
 
 import java.io.PrintStream;
 import java.util.concurrent.atomic.LongAdder;
@@ -11,7 +9,7 @@ import java.util.concurrent.atomic.LongAdder;
 /**
  * Created by Bulgakov Alex on 31.05.2014.
  */
-public class ConcurrentArrayQueueWithStatistic<E> extends ConcurrentArrayQueue<E> implements QueueWithStatistic<E> {
+public class SimpleConcurrentArrayQueueWithStatistic<E> extends SimpleConcurrentArrayQueue<E> implements QueueWithStatistic<E> {
 
     protected final LongAdder successSet = new LongAdder();
     protected final LongAdder failSet = new LongAdder();
@@ -24,7 +22,7 @@ public class ConcurrentArrayQueueWithStatistic<E> extends ConcurrentArrayQueue<E
 
     protected final boolean writeStatistic;
 
-    public ConcurrentArrayQueueWithStatistic(int capacity, boolean writeStatistic) {
+    public SimpleConcurrentArrayQueueWithStatistic(int capacity, boolean writeStatistic) {
         super(capacity, true);
         this.writeStatistic = writeStatistic;
     }
@@ -56,6 +54,12 @@ public class ConcurrentArrayQueueWithStatistic<E> extends ConcurrentArrayQueue<E
 
             printStream.println("fail next tail " + failNextTail);
             printStream.println("fail next head " + failNextHead);
+            printStream.println("t: " + t_1 + " " + t_2 + " " + t_3 + " " + t_4 + " " + t_5 + " " + t_6 + " " + t_7 + " " + t_8 + " " + t_9);
+            printStream.println("h: " + h_1 + " " + h_2 + " " + h_3 + " " + h_4 + " " + h_5 + " " + h_6 + " " + h_7 + " " + h_8 + " " + h_9);
+            printStream.println("aheadHead " + aheadHead + ", tailBefore " + tailBefore);
+            printStream.println("aheadHead2 " + aheadHead2 + ", tailBefore2 " + tailBefore2);
+            printStream.println("lostSetRevert " + lostSetRevert);
+            printStream.println("lostGetRevert " + lostGetRevert);
         }
     }
 }

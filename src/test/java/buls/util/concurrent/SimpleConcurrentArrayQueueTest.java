@@ -7,16 +7,16 @@ import org.junit.Test;
 /**
  * Created by Bulgakov Alex on 31.05.2014.
  */
-public class ConcurrentArrayQueueTest extends BaseArrayQueueTest {
+public class SimpleConcurrentArrayQueueTest extends BaseArrayQueueTest {
 
     @Override
-    protected ConcurrentArrayQueue<String> createQueue(int capacity, boolean writeStatistic) {
-        return new ConcurrentArrayQueue<>(capacity, true);
+    protected SimpleConcurrentArrayQueue<String> createQueue(int capacity, boolean writeStatistic) {
+        return new SimpleConcurrentArrayQueue<>(capacity, true);
     }
 
     @Test
     public void testTailOverflow() {
-        ConcurrentArrayQueue<String> queue = createQueue(2, false);
+        SimpleConcurrentArrayQueue<String> queue = createQueue(2, false);
         queue.offer("A");
         queue.offer("B");
         queue.poll();
@@ -26,9 +26,6 @@ public class ConcurrentArrayQueueTest extends BaseArrayQueueTest {
 
         queue.tailSequence.set(tail);
         queue.headSequence.set(tail);
-        long nextLevel = queue.afterGetLevel(tail - 1);
-        queue.levels.set(0, nextLevel);
-        queue.levels.set(1, nextLevel);
 
         Assert.assertTrue(queue.offer("C"));
         Assert.assertTrue(queue.offer("D"));
@@ -82,33 +79,15 @@ public class ConcurrentArrayQueueTest extends BaseArrayQueueTest {
         testOverflow(capacity, iterations);
     }
 
-//    @Test
-//    public void testTailOverflowMinus1() {
-//        int capacity = 1;
-//        int iterations = 1000;
-//
-//        long tail = -capacity * 20;
-//        testOverflow(capacity, iterations, tail);
-//    }
-//
-//
-//    @Test
-//    public void testTailOverflowMinus3() {
-//        int capacity = 3;
-//        int iterations = 1000;
-//
-//        long tail = -capacity * 20;
-//        testOverflow(capacity, iterations, tail);
-//    }
 
     protected void testOverflow(int capacity, int iterations) {
-        ConcurrentArrayQueue<String> queue = createQueue(capacity, false);
+        SimpleConcurrentArrayQueue<String> queue = createQueue(capacity, false);
         int maxValue = queue.max_tail();
         long tail = maxValue - (maxValue % capacity);
         testOverflow(capacity, iterations, tail, queue);
     }
 
-    private void testOverflow(int capacity, int iterations, long tail, ConcurrentArrayQueue<String> queue) {
+    private void testOverflow(int capacity, int iterations, long tail, SimpleConcurrentArrayQueue<String> queue) {
 
         initQueueOverflow(queue, capacity, tail);
         char c = 'A';
@@ -120,7 +99,7 @@ public class ConcurrentArrayQueueTest extends BaseArrayQueueTest {
         System.out.println(queue);
     }
 
-    private void initQueueOverflow(ConcurrentArrayQueue<String> queue, int capacity, long tail) {
+    private void initQueueOverflow(SimpleConcurrentArrayQueue<String> queue, int capacity, long tail) {
         Assert.assertEquals(tail % queue.capacity(), 0);
 
         for (int i = 0; i < capacity; i++) {
@@ -130,11 +109,6 @@ public class ConcurrentArrayQueueTest extends BaseArrayQueueTest {
 
         queue.tailSequence.set(tail);
         queue.headSequence.set(tail);
-        long nextLevel = queue.afterGetLevel(tail - 1);
-        //Assert.assertEquals(nextLevel % queue.capacity(), 0);
-        for (int i = 0; i < capacity; i++) {
-            queue.levels.set(i, nextLevel);
-        }
 
         System.out.println(queue);
     }
@@ -150,13 +124,13 @@ public class ConcurrentArrayQueueTest extends BaseArrayQueueTest {
         int capacity = 5;
         int getters = 2;
 
-        final ConcurrentArrayQueue<String> queue = createQueue(capacity, WRITE_STATISTIC);
+        final SimpleConcurrentArrayQueue<String> queue = createQueue(capacity, WRITE_STATISTIC);
         int maxValue = queue.max_tail();
         long tail = maxValue - (maxValue % capacity) - capacity;
 
         initQueueOverflow(queue, capacity, tail);
 
-        testQueueConcurrently(queue, inserts, attemptsPerInsert, getters, "testInsertAnGetsInConcurrentMode4",
+        testQueueConcurrently(queue, inserts, attemptsPerInsert, getters, "testInsertAnGetsInConcurrentMode7",
                 (int) (inserts * attemptsPerInsert * 1.5), (int) (getters * attemptsPerInsert * 1.5));
     }
 
@@ -167,13 +141,13 @@ public class ConcurrentArrayQueueTest extends BaseArrayQueueTest {
         int capacity = 1;
         int getters = 2;
 
-        final ConcurrentArrayQueue<String> queue = createQueue(capacity, WRITE_STATISTIC);
+        final SimpleConcurrentArrayQueue<String> queue = createQueue(capacity, WRITE_STATISTIC);
         int maxValue = queue.max_tail();
         long tail = maxValue - (maxValue % capacity) - capacity;
 
         initQueueOverflow(queue, capacity, tail);
 
-        testQueueConcurrently(queue, inserts, attemptsPerInsert, getters, "testInsertAnGetsInConcurrentMode4",
-                (int) (inserts * attemptsPerInsert * 1.5), (int) (getters * attemptsPerInsert * 1.5));
+        testQueueConcurrently(queue, inserts, attemptsPerInsert, getters, "testInsertAnGetsInConcurrentMode7",
+                (int) (inserts * attemptsPerInsert * 3), (int) (getters * attemptsPerInsert * 3));
     }
 }

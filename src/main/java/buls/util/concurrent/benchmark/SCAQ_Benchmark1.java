@@ -1,6 +1,7 @@
 package buls.util.concurrent.benchmark;
 
-import buls.util.concurrent.ConcurrentArrayQueue;
+import buls.util.concurrent.LevelBasedConcurrentArrayQueue;
+import buls.util.concurrent.SimpleConcurrentArrayQueue;
 import buls.util.concurrent.benchmark.impl.AbstractExecutor;
 import buls.util.concurrent.benchmark.impl.AbstractNoBlockingQueueService;
 import buls.util.concurrent.benchmark.impl.EmptyExecutor;
@@ -16,7 +17,7 @@ import java.util.concurrent.TimeUnit;
 @BenchmarkMode(Mode.Throughput)
 @Warmup(time = 100, timeUnit = TimeUnit.MILLISECONDS)
 @Measurement(timeUnit = TimeUnit.MILLISECONDS, time = 100)
-public class CAQ_Benchmark1 {
+public class SCAQ_Benchmark1 {
 
     @Param({"1", "2", "3"})
     public int readers;
@@ -101,7 +102,7 @@ public class CAQ_Benchmark1 {
         @Override
         @NotNull
         protected Queue<Runnable> createQueue() {
-            return new ConcurrentArrayQueue<>(capacity/*, writeStatistic*/);
+            return new SimpleConcurrentArrayQueue<>(capacity);
         }
     }
 

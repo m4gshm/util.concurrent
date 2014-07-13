@@ -1,6 +1,5 @@
 package buls.util.concurrent.research;
 
-import buls.util.concurrent.ConcurrentArrayQueue;
 import org.jetbrains.annotations.NotNull;
 
 import java.util.concurrent.Semaphore;
@@ -9,7 +8,7 @@ import java.util.concurrent.Semaphore;
  * Created by Alex on 22.06.2014.
  */
 @Deprecated
-public class ConcurrentArrayQueueWithSemaphore<E> extends ConcurrentArrayQueueWithStatistic<E> {
+public class ConcurrentArrayQueueWithSemaphore<E> extends LevelBasedConcurrentArrayQueueWithStatistic<E> {
     @NotNull
     private final Semaphore setSemaphore;
 
