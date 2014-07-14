@@ -6,7 +6,6 @@ import org.jetbrains.annotations.Nullable;
 import java.util.AbstractQueue;
 import java.util.Iterator;
 import java.util.concurrent.atomic.AtomicLong;
-import java.util.concurrent.atomic.LongAdder;
 
 /**
  * Created by Alex on 25.06.2014.
@@ -39,7 +38,7 @@ public abstract class AbstractArrayQueue<E> extends AbstractQueue<E> {
         final long h = getHead();
         final long t = getTail();
         return "h: " + h + " (" + computeIndex(h) + ")"
-                +  ", t: " + t + " (" + computeIndex(t) + ")"
+                + ", t: " + t + " (" + computeIndex(t) + ")"
                 + ", c:" + capacity()
                 + ", mT:" + max_tail()
                 + "\n" + _string();
@@ -73,12 +72,8 @@ public abstract class AbstractArrayQueue<E> extends AbstractQueue<E> {
 
     protected final int delta(final long head, final long tail) {
         final long delta;
-        if (tail >= head) {
-            delta = tail - head;
-        } else {
-            delta = tail - 0 + max_tail() - head + 1;
-        }
-        assert delta >= 0 : delta + " " + head + " " + tail + "\n" + this;
+        if (tail >= head) delta = tail - head;
+        else delta = tail - 0 + max_tail() - head + 1;
         return (int) delta;
     }
 
@@ -111,14 +106,10 @@ public abstract class AbstractArrayQueue<E> extends AbstractQueue<E> {
 
     @Override
     public boolean offer(@Nullable E e) {
-        if (e == null) {
-            throw new IllegalArgumentException("element cannot be null");
-        }
+        if (e == null) throw new IllegalArgumentException("element cannot be null");
 
         final int capacity = capacity();
-        if (capacity == 0) {
-            return false;
-        }
+        if (capacity == 0) return false;
 
         final long tail = getTail();
         final long head = getHead();
@@ -131,9 +122,8 @@ public abstract class AbstractArrayQueue<E> extends AbstractQueue<E> {
     @Override
     public E poll() {
         final int capacity = capacity();
-        if (capacity == 0) {
-            return null;
-        }
+
+        if (capacity == 0) return null;
 
         final long tail = getTail();
         final long head = getHead();
@@ -166,67 +156,44 @@ public abstract class AbstractArrayQueue<E> extends AbstractQueue<E> {
     }
 
     protected boolean setNextHead(long oldHead, long insertedHead) {
-        boolean next = next(oldHead, insertedHead, headSequence);
-        return next;
+        return next(oldHead, insertedHead, headSequence);
     }
 
     protected boolean setNextTail(long oldTail, long insertedTail) {
         return next(oldTail, insertedTail, tailSequence);
     }
 
-    private boolean next(final long oldVal, final long insertedVal, final @NotNull AtomicLong sequence) {
+    private boolean next(long oldVal, long insertedVal, @NotNull AtomicLong sequence) {
         assert insertedVal >= 0;
         assert insertedVal <= max_tail();
 
-        final boolean ivOverflow = oldVal > insertedVal;
-        final long newValue = _increment(insertedVal);
-        final boolean nvOverflow = newValue == 0 && insertedVal == max_tail();
+        boolean ivOverflow = oldVal > insertedVal;
+        long newValue = _increment(insertedVal);
+        boolean nvOverflow = newValue == 0 && insertedVal == max_tail();
 
         assert !(nvOverflow && ivOverflow) : oldVal + " " + newValue + " " + insertedVal + " " + max_tail();
 
         boolean set = cas(sequence, oldVal, newValue);
         while (!set) {
-            final long currentValue = sequence.get();
+            long currentValue = sequence.get();
 
             boolean tailRange = currentValue > oldVal
-                    //&& currentValue > (max_tail() - capacity())
                     && currentValue <= max_tail();
             boolean headRange = currentValue < newValue;
 
-            if (ivOverflow) {
-
-                assert !(tailRange && headRange) : tailRange + " " + headRange + " "
-                        + oldVal + " " + insertedVal + " " + newValue + " " + currentValue + " " + max_tail()
-                        + "\n" + this;
-
-                if (tailRange || headRange) {
-                    set = cas(sequence, currentValue, newValue);
-                } else {
-                    set = false;
-                    break;
-                }
-            } else if (nvOverflow) {
-                assert insertedVal == max_tail() : insertedVal + " " + max_tail();
-
-                assert !(tailRange && headRange) : tailRange + " " + headRange + " "
-                        + oldVal + " " + insertedVal + " " + newValue + " " + currentValue + "\n" + this;
-
-                if (tailRange || headRange) {
-                    set = cas(sequence, currentValue, newValue);
-                } else {
-                    set = false;
-                    break;
-                }
-            } else {
-                if (currentValue < newValue) {
-                    set = cas(sequence, currentValue, newValue);
-                } else {
-                    set = false;
-                    break;
-                }
-            }
+            if (ivOverflow || nvOverflow) {
+                assertRange(oldVal, insertedVal, newValue, currentValue, tailRange, headRange);
+                if (tailRange || headRange) set = cas(sequence, currentValue, newValue);
+                else break;
+            } else if (currentValue < newValue) set = cas(sequence, currentValue, newValue);
+            else break;
         }
         return set;
+    }
+
+    private void assertRange(long oldVal, long insertedVal, long newValue, long currentValue, boolean tailRange, boolean headRange) {
+        assert !(tailRange && headRange) : tailRange + " " + headRange + " "
+                + oldVal + " " + insertedVal + " " + newValue + " " + currentValue + " " + max_tail() + "\n" + this;
     }
 
     protected long _increment(long counter) {
@@ -266,12 +233,9 @@ public abstract class AbstractArrayQueue<E> extends AbstractQueue<E> {
     }
 
     protected long computeHead(long head) {
-        final long h = getHead();
-        if (head < h) {
-            head = h;
-        } else {
-            head = _increment(head);
-        }
-        return head;
+        long h = getHead();
+
+        if (head < h) return h;
+        else return _increment(head);
     }
 }

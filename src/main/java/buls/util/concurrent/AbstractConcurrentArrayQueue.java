@@ -21,7 +21,7 @@ public abstract class AbstractConcurrentArrayQueue<E> extends AbstractArrayQueue
         final int capacity = capacity();
 
         while (isNotInterrupted()) {
-            final int res = set(e, tail, currentTail, head);
+            final int res = set(e, tail, currentTail);
             if (res == SUCCESS) {
                 successSet();
                 return true;
@@ -30,46 +30,36 @@ public abstract class AbstractConcurrentArrayQueue<E> extends AbstractArrayQueue
                 currentTail = computeTail(currentTail, res);
 
                 boolean overflow = checkTail(currentTail, capacity);
-                if (overflow) {
-                    return false;
-                }
+                if (overflow) return false;
             }
         }
         return false;
     }
 
-    protected abstract int set(E e, long tail, long currentTail, long head);
+    protected abstract int set(E e, long tail, long currentTail);
 
     @Nullable
     @Override
     protected E getElement(final long head, final long tail) {
         assert delta(head, tail) > 0 : head + " " + tail + ", size " + delta(head, tail);
         long currentHead = head;
-        long currentTail = tail;
-        long fails = 0;
         while (isNotInterrupted()) {
             E e;
-            if ((e = get(head, currentHead, currentTail, fails)) != null) {
+            if ((e = get(head, currentHead)) != null) {
                 successGet();
                 return e;
             } else {
-                fails++;
                 failGet();
 
                 currentHead = computeHead(currentHead);
                 long t = getTail();
-
-                if (checkHead(currentHead, t)) {
-                    return null;
-                }
-                assert delta(currentHead, t) > 0 : currentHead + " " + t + ", delta " + delta(currentHead, t);
-                currentTail = t;
+                if (checkHead(currentHead, t)) return null;
             }
         }
         return null;
     }
 
-    protected abstract E get(long head, long currentHead, long currentTail, long fails);
+    protected abstract E get(long head, long currentHead);
 
     protected void failGet() {
     }
@@ -92,12 +82,10 @@ public abstract class AbstractConcurrentArrayQueue<E> extends AbstractArrayQueue
         return counter / capacity();
     }
 
-    protected long nextLevelCounter(long lfc) {
-        if (lfc == MAX_VALUE) {
-            return 0;
-        }
+    protected long nextLevelCounter(long counter) {
+        if (counter == MAX_VALUE) return 0;
         int capacity = capacity();
-        return lfc - (lfc % capacity) + capacity;
+        return counter - (counter % capacity) + capacity;
     }
 
     private void assertCounter(long counter) {

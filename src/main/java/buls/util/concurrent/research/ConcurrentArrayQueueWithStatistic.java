@@ -1,6 +1,6 @@
 package buls.util.concurrent.research;
 
-import buls.util.concurrent.LevelBasedConcurrentArrayQueue;
+import buls.util.concurrent.ConcurrentArrayQueue;
 import org.jetbrains.annotations.NotNull;
 
 import java.io.PrintStream;
@@ -9,7 +9,7 @@ import java.util.concurrent.atomic.LongAdder;
 /**
  * Created by Bulgakov Alex on 31.05.2014.
  */
-public class LevelBasedConcurrentArrayQueueWithStatistic<E> extends LevelBasedConcurrentArrayQueue<E> implements QueueWithStatistic<E> {
+public class ConcurrentArrayQueueWithStatistic<E> extends ConcurrentArrayQueue<E> implements QueueWithStatistic<E> {
 
     protected final LongAdder successSet = new LongAdder();
     protected final LongAdder failSet = new LongAdder();
@@ -22,7 +22,7 @@ public class LevelBasedConcurrentArrayQueueWithStatistic<E> extends LevelBasedCo
 
     protected final boolean writeStatistic;
 
-    public LevelBasedConcurrentArrayQueueWithStatistic(int capacity, boolean writeStatistic) {
+    public ConcurrentArrayQueueWithStatistic(int capacity, boolean writeStatistic) {
         super(capacity, true);
         this.writeStatistic = writeStatistic;
     }

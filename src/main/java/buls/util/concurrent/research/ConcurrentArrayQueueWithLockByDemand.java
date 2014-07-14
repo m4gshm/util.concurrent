@@ -13,7 +13,7 @@ import java.util.concurrent.locks.ReentrantLock;
  * Created by Bulgakov Alex on 31.05.2014.
  */
 @Deprecated
-public class ConcurrentArrayQueueWithLockByDemand<E> extends LevelBasedConcurrentArrayQueueWithStatistic<E> {
+public class ConcurrentArrayQueueWithLockByDemand<E> extends ConcurrentArrayQueueWithStatistic<E> {
 
     public static final int SET_FAILS = 100;
     public static final int GET_FAILS = 100;
@@ -47,7 +47,7 @@ public class ConcurrentArrayQueueWithLockByDemand<E> extends LevelBasedConcurren
             final Lock lock = setLock;
             hasLock = acquireLock(needLock, lock);
             while (true) {
-                final int res = set(e, tail, currentTail, head);
+                final int res = set(e, tail, currentTail);
                 if (res == SUCCESS) {
                     successSet();
                     return true;
@@ -90,7 +90,7 @@ public class ConcurrentArrayQueueWithLockByDemand<E> extends LevelBasedConcurren
             hasLock = acquireLock(needLock, lock);
             while (true) {
                 E e;
-                if ((e = get(head, currentHead, currentTail, fails)) != null) {
+                if ((e = get(head, currentHead)) != null) {
                     successGet();
                     return e;
                 } else {

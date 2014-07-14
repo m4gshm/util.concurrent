@@ -1,6 +1,5 @@
 package buls.util.concurrent.benchmark;
 
-import buls.util.concurrent.LevelBasedConcurrentArrayQueue;
 import buls.util.concurrent.SimpleConcurrentArrayQueue;
 import buls.util.concurrent.benchmark.impl.AbstractExecutor;
 import buls.util.concurrent.benchmark.impl.AbstractNoBlockingQueueService;

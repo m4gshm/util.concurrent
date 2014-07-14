@@ -64,36 +64,33 @@ public class SimpleConcurrentArrayQueue<E> extends AbstractConcurrentArrayQueue<
     }
 
     @Override
-    protected final int set(@NotNull final E e, final long tail, final long currentTail, final long head) {
+    protected final int set(@NotNull final E e, final long tail, final long currentTail) {
         final int index = computeIndex(currentTail);
         if (_insert(e, index)) {
             boolean success = setNextTail(tail, currentTail);
             assert success : tail + " " + currentTail + "\n" + this;
 
-            //check inserting behind head
-            lock(getLock);
-            try {
-                long h = getHead();
-                boolean taiOverflow = currentTail < tail;
-                if (!taiOverflow) {
-                    boolean behindHead = !(h <= currentTail);
-                    if (behindHead) {
-                        //behind head detected;
-                        //todo доделать;
-                    }
-                }
-            } finally {
-                unlock(getLock);
-            }
+//            //check inserting behind head
+//            lock(getLock);
+//            try {
+//                long h = getHead();
+//                boolean taiOverflow = currentTail < tail;
+//                if (!taiOverflow) {
+//                    boolean behindHead = !(h <= currentTail);
+//                    if (behindHead) {
+//                        //behind head detected;
+//
+//                    }
+//                }
+//            } finally {unlock(getLock);}
+
             return SUCCESS;
-        } else {
-            return GET_CURRENT_TAIL;
-        }
+        } else return GET_CURRENT_TAIL;
     }
 
     @Override
     @Nullable
-    protected final E get(long head, long currentHead, long tail, long fails) {
+    protected final E get(long head, long currentHead) {
 
         final int index = computeIndex(currentHead);
         E e = _retrieve(index);

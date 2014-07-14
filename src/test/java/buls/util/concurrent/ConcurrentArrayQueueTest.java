@@ -7,16 +7,16 @@ import org.junit.Test;
 /**
  * Created by Bulgakov Alex on 31.05.2014.
  */
-public class LevelBasedConcurrentArrayQueueTest extends BaseArrayQueueTest {
+public class ConcurrentArrayQueueTest extends BaseArrayQueueTest {
 
     @Override
-    protected LevelBasedConcurrentArrayQueue<String> createQueue(int capacity, boolean writeStatistic) {
-        return new LevelBasedConcurrentArrayQueue<>(capacity, true);
+    protected ConcurrentArrayQueue<String> createQueue(int capacity, boolean writeStatistic) {
+        return new ConcurrentArrayQueue<>(capacity, true);
     }
 
     @Test
     public void testTailOverflow() {
-        LevelBasedConcurrentArrayQueue<String> queue = createQueue(2, false);
+        ConcurrentArrayQueue<String> queue = createQueue(2, false);
         queue.offer("A");
         queue.offer("B");
         queue.poll();
@@ -84,13 +84,13 @@ public class LevelBasedConcurrentArrayQueueTest extends BaseArrayQueueTest {
 
 
     protected void testOverflow(int capacity, int iterations) {
-        LevelBasedConcurrentArrayQueue<String> queue = createQueue(capacity, false);
+        ConcurrentArrayQueue<String> queue = createQueue(capacity, false);
         int maxValue = queue.max_tail();
         long tail = maxValue - (maxValue % capacity);
         testOverflow(capacity, iterations, tail, queue);
     }
 
-    private void testOverflow(int capacity, int iterations, long tail, LevelBasedConcurrentArrayQueue<String> queue) {
+    private void testOverflow(int capacity, int iterations, long tail, ConcurrentArrayQueue<String> queue) {
 
         initQueueOverflow(queue, capacity, tail);
         char c = 'A';
@@ -102,7 +102,7 @@ public class LevelBasedConcurrentArrayQueueTest extends BaseArrayQueueTest {
         System.out.println(queue);
     }
 
-    private void initQueueOverflow(LevelBasedConcurrentArrayQueue<String> queue, int capacity, long tail) {
+    private void initQueueOverflow(ConcurrentArrayQueue<String> queue, int capacity, long tail) {
         Assert.assertEquals(tail % queue.capacity(), 0);
 
         for (int i = 0; i < capacity; i++) {
@@ -132,7 +132,7 @@ public class LevelBasedConcurrentArrayQueueTest extends BaseArrayQueueTest {
         int capacity = 5;
         int getters = 2;
 
-        final LevelBasedConcurrentArrayQueue<String> queue = createQueue(capacity, WRITE_STATISTIC);
+        final ConcurrentArrayQueue<String> queue = createQueue(capacity, WRITE_STATISTIC);
         int maxValue = queue.max_tail();
         long tail = maxValue - (maxValue % capacity) - capacity;
 
@@ -149,7 +149,7 @@ public class LevelBasedConcurrentArrayQueueTest extends BaseArrayQueueTest {
         int capacity = 1;
         int getters = 2;
 
-        final LevelBasedConcurrentArrayQueue<String> queue = createQueue(capacity, WRITE_STATISTIC);
+        final ConcurrentArrayQueue<String> queue = createQueue(capacity, WRITE_STATISTIC);
         int maxValue = queue.max_tail();
         long tail = maxValue - (maxValue % capacity) - capacity;
 

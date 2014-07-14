@@ -1,6 +1,6 @@
 package buls.util.concurrent.benchmark;
 
-import buls.util.concurrent.LevelBasedConcurrentArrayQueue;
+import buls.util.concurrent.ConcurrentArrayQueue;
 import buls.util.concurrent.benchmark.impl.AbstractExecutor;
 import buls.util.concurrent.benchmark.impl.AbstractNoBlockingQueueService;
 import buls.util.concurrent.benchmark.impl.EmptyExecutor;
@@ -101,7 +101,7 @@ public class LBCAQ_Benchmark1 {
         @Override
         @NotNull
         protected Queue<Runnable> createQueue() {
-            return new LevelBasedConcurrentArrayQueue<>(capacity/*, writeStatistic*/);
+            return new ConcurrentArrayQueue<>(capacity/*, writeStatistic*/);
         }
     }
 
