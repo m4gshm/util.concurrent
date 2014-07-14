@@ -3,7 +3,6 @@ package buls.util.concurrent;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
-import java.util.Arrays;
 import java.util.concurrent.atomic.AtomicLongArray;
 
 /**
@@ -125,7 +124,7 @@ public class ConcurrentArrayQueue<E> extends AbstractConcurrentArrayQueue<E> {
     private boolean stopTryPooling(int index, long level, long currentHead) {
         assert level > 0;
         final long current = _level(index);
-        assert current != 0 : current + " " + level + " " + currentHead + "\n" + this;
+        //assert current != 0 : current + " " + level + " " + index + " " + currentHead + "\n" + this;
         return !(current == PUTTING || level == current);
     }
 

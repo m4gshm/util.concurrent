@@ -173,7 +173,7 @@ public class SimpleConcurrentArrayQueue<E> extends AbstractConcurrentArrayQueue<
 
     @Override
     protected long computeTail(long currentTail, int calculateType) {
-        return _increment(getTail());// _increment(currentTail);
+        return getTail();// _increment(currentTail);
     }
 
     private long checkedByteOffset(int i) {

@@ -19,18 +19,9 @@ public abstract class AbstractNoBlockingQueueService extends AbstractServiceStat
 
     @NotNull
     @Override
-    protected Service createService() {
-        @NotNull final AbstractExecutor executor = createExecutor();
-        @NotNull final Queue<Runnable> queue = createQueue();
+    public Service createService(Queue<Runnable> queue, AbstractExecutor executor) {
         return new NoBlockingQueueConcurrentService(getClass().getSimpleName(), threads,
                 writeStatistic, writeStatistic, false, executor, queue);
-
     }
-
-    @NotNull
-    protected abstract Queue<Runnable> createQueue();
-
-    @NotNull
-    protected abstract AbstractExecutor createExecutor();
 
 }

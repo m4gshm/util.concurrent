@@ -99,6 +99,16 @@ public abstract class BaseArrayQueueTest {
         testQueueConcurrently(capacity, inserts, attemptsPerInsert, getters, "testInsertAnGetsInConcurrentMode7", THRESHOLD * 2);
     }
 
+    @Test
+    public void testInsertAnGetsInConcurrentMode8() {
+        int inserts = 3;
+        int attemptsPerInsert = 100_000;
+        int capacity = inserts * attemptsPerInsert;
+        int getters = 3;
+
+        testQueueConcurrently(capacity, inserts, attemptsPerInsert, getters, "testInsertAnGetsInConcurrentMode8", THRESHOLD * 2);
+    }
+
     private void testQueueConcurrently(int capacity, int inserts, int attemptsPerInsert, int getters,
                                        String testName, int threshold) {
         final Queue<String> queue = createQueue(capacity, WRITE_STATISTIC);

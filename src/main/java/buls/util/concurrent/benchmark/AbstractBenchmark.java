@@ -1,6 +1,5 @@
 package buls.util.concurrent.benchmark;
 
-import buls.util.concurrent.ConcurrentArrayQueue;
 import buls.util.concurrent.benchmark.impl.AbstractExecutor;
 import buls.util.concurrent.benchmark.impl.AbstractNoBlockingQueueService;
 import buls.util.concurrent.benchmark.impl.EmptyExecutor;
@@ -11,26 +10,27 @@ import org.openjdk.jmh.annotations.*;
 import java.util.Queue;
 import java.util.concurrent.TimeUnit;
 
+/**
+ * Created by alexander on 14.07.14.
+ */
 @State(Scope.Benchmark)
 @OutputTimeUnit(TimeUnit.MILLISECONDS)
 @BenchmarkMode(Mode.Throughput)
 @Warmup(time = 100, timeUnit = TimeUnit.MILLISECONDS)
 @Measurement(timeUnit = TimeUnit.MILLISECONDS, time = 100)
-public class LBCAQ_Benchmark1 {
-
+public abstract class AbstractBenchmark {
     @Param({"1", "2", "3"})
     public int readers;
-    @Param({"10000", "1000000", "10000000"})
+    @Param({"10000", "1000000", "10000000", "2147483647"})
     public int capacity;
-//    @Param({"false"})
-    private boolean writeStatistic;
+
     public Service service;
 
     @Setup(Level.Iteration)
     public void setup() {
-        ServiceFactory factory = new ServiceFactory(readers, capacity, writeStatistic);
-        factory.startup();
-        service = factory.getService();
+        ServiceFactory factory = new ServiceFactory(readers, false);
+        service = factory.createService(createQueue(), createExecutor());
+        service.start();
     }
 
     @TearDown(Level.Iteration)
@@ -80,29 +80,20 @@ public class LBCAQ_Benchmark1 {
         }
     }
 
-    public static class ServiceFactory extends AbstractNoBlockingQueueService {
+    @NotNull
+    protected abstract Queue<Runnable> createQueue();
 
-        private final int capacity;
-
-        public ServiceFactory(int threads, int capacity, boolean writeStatistic) {
-            super(writeStatistic, threads);
-            this.capacity = capacity;
-
-        }
-
-
-        @NotNull
-        @Override
-        protected AbstractExecutor createExecutor() {
-            return new EmptyExecutor();
-        }
-
-
-        @Override
-        @NotNull
-        protected Queue<Runnable> createQueue() {
-            return new ConcurrentArrayQueue<>(capacity/*, writeStatistic*/);
-        }
+    @NotNull
+    protected AbstractExecutor createExecutor() {
+        return new EmptyExecutor();
     }
 
+    public static class ServiceFactory extends AbstractNoBlockingQueueService {
+
+        public ServiceFactory(int threads, boolean writeStatistic) {
+            super(writeStatistic, threads);
+        }
+
+
+    }
 }
