@@ -15,6 +15,7 @@ apply plugin: 'apt'
 apply plugin: 'shadow'
 
 version = '1.0'
+sourceCompatibility = JavaVersion.VERSION_1_8
 
 jar {
     manifest {

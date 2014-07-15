@@ -21,7 +21,7 @@ public abstract class AbstractConcurrentArrayQueue<E> extends AbstractArrayQueue
         final int capacity = capacity();
 
         while (isNotInterrupted()) {
-            final int res = set(e, tail, currentTail);
+            final int res = set(e, tail, currentTail, head);
             if (res == SUCCESS) {
                 successSet();
                 return true;
@@ -36,7 +36,7 @@ public abstract class AbstractConcurrentArrayQueue<E> extends AbstractArrayQueue
         return false;
     }
 
-    protected abstract int set(E e, long tail, long currentTail);
+    protected abstract int set(E e, long tail, long currentTail, long head);
 
     @Nullable
     @Override

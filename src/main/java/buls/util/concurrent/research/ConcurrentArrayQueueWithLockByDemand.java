@@ -47,7 +47,7 @@ public class ConcurrentArrayQueueWithLockByDemand<E> extends ConcurrentArrayQueu
             final Lock lock = setLock;
             hasLock = acquireLock(needLock, lock);
             while (true) {
-                final int res = set(e, tail, currentTail);
+                final int res = set(e, tail, currentTail, head);
                 if (res == SUCCESS) {
                     successSet();
                     return true;

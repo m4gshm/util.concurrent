@@ -5,7 +5,6 @@ import org.jetbrains.annotations.Nullable;
 import sun.misc.Unsafe;
 
 import java.lang.reflect.Field;
-import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 
 /**
@@ -55,10 +54,33 @@ public class SimpleConcurrentArrayQueue<E> extends AbstractConcurrentArrayQueue<
     }
 
     @Override
-    protected final int set(@NotNull final E e, final long tail, final long currentTail) {
+    protected final int set(@NotNull final E e, final long tail, final long currentTail, long head) {
         final int index = computeIndex(currentTail);
         if (_insert(e, index)) {
             setNextTail(tail, currentTail);
+            readUnlock();
+            writeLock();
+            try {
+                long h = getHead();
+                boolean tailOverflow = currentTail < tail;
+                boolean headOverflow = h < head;
+                long hLevel = h / capacity();
+                long tLevel = currentTail / capacity();
+                if (hLevel <= tLevel && (tailOverflow == headOverflow || !tailOverflow)) {
+                    boolean behindHead = !(h <= currentTail);
+                    if (behindHead) {
+                        boolean b = _cas(index, e, null);
+                        if(b) {
+                            return GET_CURRENT_TAIL;
+                        } else {
+                            String.valueOf(b);
+                        }
+                    }
+                }
+            } finally {
+                readLock();
+                writeUnlock();
+            }
             return SUCCESS;
         } else return GO_NEXT;
     }
@@ -89,10 +111,10 @@ public class SimpleConcurrentArrayQueue<E> extends AbstractConcurrentArrayQueue<
     @Override
     public E poll() {
         try {
-            writeLock();
+            readLock();
             return super.poll();
         } finally {
-            writeUnlock();
+            readUnlock();
         }
     }
 
@@ -110,29 +132,6 @@ public class SimpleConcurrentArrayQueue<E> extends AbstractConcurrentArrayQueue<
 
     private void writeLock() {
         rwl.writeLock().lock();
-    }
-
-
-    private boolean lock(AtomicBoolean locker) {
-        boolean lock = false;
-        while (isNotInterrupted()) {
-            lock = locker.compareAndSet(false, true);
-            if (lock) {
-                break;
-            }
-        }
-        return lock;
-    }
-
-    private boolean unlock(AtomicBoolean locker) {
-        boolean unlock = false;
-        while (isNotInterrupted()) {
-            unlock = locker.compareAndSet(true, false);
-            if (unlock) {
-                break;
-            }
-        }
-        return unlock;
     }
 
     @Nullable
@@ -156,11 +155,6 @@ public class SimpleConcurrentArrayQueue<E> extends AbstractConcurrentArrayQueue<
         }
     }
 
-    @Override
-    protected long computeHead(long head) {
-        return getHead();
-    }
-
     private long checkedByteOffset(int i) {
         if (i < 0 || i >= elements.length)
             throw new IndexOutOfBoundsException("index " + i);
@@ -179,5 +173,8 @@ public class SimpleConcurrentArrayQueue<E> extends AbstractConcurrentArrayQueue<
         return compareAndSetRaw(checkedByteOffset(i), expect, update);
     }
 
-
+    @Override
+    protected long computeHead(long head) {
+        return _increment(head);
+    }
 }

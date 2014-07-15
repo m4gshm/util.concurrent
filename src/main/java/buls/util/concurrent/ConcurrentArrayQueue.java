@@ -36,7 +36,7 @@ public class ConcurrentArrayQueue<E> extends AbstractConcurrentArrayQueue<E> {
         return levels.toString();
     }
 
-    protected final int set(final E e, final long tail, final long currentTail) {
+    protected final int set(final E e, final long tail, final long currentTail, long head) {
         while (isNotInterrupted()) {
             final int index = computeIndex(currentTail);
             final long level = beforeSetLevel(currentTail);
