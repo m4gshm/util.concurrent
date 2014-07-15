@@ -6,7 +6,7 @@ import sun.misc.Unsafe;
 
 import java.lang.reflect.Field;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.atomic.LongAdder;
+import java.util.concurrent.locks.ReentrantReadWriteLock;
 
 /**
  * Created by Bulgakov Alex on 14.06.2014.
@@ -40,16 +40,7 @@ public class SimpleConcurrentArrayQueue<E> extends AbstractConcurrentArrayQueue<
         shift = 31 - Integer.numberOfLeadingZeros(scale);
     }
 
-    protected final LongAdder aheadHead = new LongAdder();
-    protected final LongAdder tailBefore = new LongAdder();
-    protected final LongAdder aheadHead2 = new LongAdder();
-    protected final LongAdder tailBefore2 = new LongAdder();
-    protected final LongAdder lostSetRevert = new LongAdder();
-    protected final LongAdder lostGetRevert = new LongAdder();
-
-    private final AtomicBoolean setLock = new AtomicBoolean();
-    private final AtomicBoolean getLock = new AtomicBoolean();
-
+    private final ReentrantReadWriteLock rwl = new ReentrantReadWriteLock();
 
     public SimpleConcurrentArrayQueue(int capacity) {
         this(capacity, true);
@@ -67,36 +58,18 @@ public class SimpleConcurrentArrayQueue<E> extends AbstractConcurrentArrayQueue<
     protected final int set(@NotNull final E e, final long tail, final long currentTail) {
         final int index = computeIndex(currentTail);
         if (_insert(e, index)) {
-            boolean success = setNextTail(tail, currentTail);
-            assert success : tail + " " + currentTail + "\n" + this;
-
-//            //check inserting behind head
-//            lock(getLock);
-//            try {
-//                long h = getHead();
-//                boolean taiOverflow = currentTail < tail;
-//                if (!taiOverflow) {
-//                    boolean behindHead = !(h <= currentTail);
-//                    if (behindHead) {
-//                        //behind head detected;
-//
-//                    }
-//                }
-//            } finally {unlock(getLock);}
-
+            setNextTail(tail, currentTail);
             return SUCCESS;
-        } else return GET_CURRENT_TAIL;
+        } else return GO_NEXT;
     }
 
     @Override
     @Nullable
     protected final E get(long head, long currentHead) {
-
         final int index = computeIndex(currentHead);
         E e = _retrieve(index);
         if (e != null) {
-            boolean success = setNextHead(head, currentHead);
-            assert success : head + " " + currentHead + "\n" + this;
+            setNextHead(head, currentHead);
             return e;
         }
         return null;
@@ -104,24 +77,41 @@ public class SimpleConcurrentArrayQueue<E> extends AbstractConcurrentArrayQueue<
 
     @Override
     public boolean offer(@Nullable E e) {
-        lock(setLock);
         try {
+            readLock();
             return super.offer(e);
         } finally {
-            unlock(setLock);
+            readUnlock();
         }
     }
 
     @Nullable
     @Override
     public E poll() {
-        lock(getLock);
         try {
+            writeLock();
             return super.poll();
         } finally {
-            unlock(getLock);
+            writeUnlock();
         }
     }
+
+    private void readUnlock() {
+        rwl.readLock().unlock();
+    }
+
+    private void readLock() {
+        rwl.readLock().lock();
+    }
+
+    private void writeUnlock() {
+        rwl.writeLock().unlock();
+    }
+
+    private void writeLock() {
+        rwl.writeLock().lock();
+    }
+
 
     private boolean lock(AtomicBoolean locker) {
         boolean lock = false;
@@ -168,12 +158,7 @@ public class SimpleConcurrentArrayQueue<E> extends AbstractConcurrentArrayQueue<
 
     @Override
     protected long computeHead(long head) {
-        return getHead();//_increment(head);
-    }
-
-    @Override
-    protected long computeTail(long currentTail, int calculateType) {
-        return getTail();// _increment(currentTail);
+        return getHead();
     }
 
     private long checkedByteOffset(int i) {

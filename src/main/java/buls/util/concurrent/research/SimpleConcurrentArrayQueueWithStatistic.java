@@ -54,10 +54,6 @@ public class SimpleConcurrentArrayQueueWithStatistic<E> extends SimpleConcurrent
 
             printStream.println("fail next tail " + failNextTail);
             printStream.println("fail next head " + failNextHead);
-            printStream.println("aheadHead " + aheadHead + ", tailBefore " + tailBefore);
-            printStream.println("aheadHead2 " + aheadHead2 + ", tailBefore2 " + tailBefore2);
-            printStream.println("lostSetRevert " + lostSetRevert);
-            printStream.println("lostGetRevert " + lostGetRevert);
         }
     }
 }

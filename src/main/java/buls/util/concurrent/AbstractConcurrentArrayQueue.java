@@ -41,7 +41,6 @@ public abstract class AbstractConcurrentArrayQueue<E> extends AbstractArrayQueue
     @Nullable
     @Override
     protected E getElement(final long head, final long tail) {
-        assert delta(head, tail) > 0 : head + " " + tail + ", size " + delta(head, tail);
         long currentHead = head;
         while (isNotInterrupted()) {
             E e;
@@ -78,7 +77,6 @@ public abstract class AbstractConcurrentArrayQueue<E> extends AbstractArrayQueue
     }
 
     protected final long computeLevel(long counter) {
-        assertCounter(counter);
         return counter / capacity();
     }
 
@@ -86,10 +84,5 @@ public abstract class AbstractConcurrentArrayQueue<E> extends AbstractArrayQueue
         if (counter == MAX_VALUE) return 0;
         int capacity = capacity();
         return counter - (counter % capacity) + capacity;
-    }
-
-    private void assertCounter(long counter) {
-        assert counter >= 0 : counter + "<0";
-        assert counter < Long.MAX_VALUE : "counter = MAX_VALUE";
     }
 }
