@@ -1,8 +1,8 @@
 package buls.util.concurrent;
 
-import org.junit.Assert;
-import org.junit.Test;
 
+import org.testng.Assert;
+import org.testng.annotations.Test;
 
 /**
  * Created by Bulgakov Alex on 31.05.2014.
@@ -11,21 +11,20 @@ public class SimpleConcurrentArrayQueueTest extends BaseArrayQueueTest {
 
     @Override
     protected SimpleConcurrentArrayQueue<String> createQueue(int capacity, boolean writeStatistic) {
-        return new SimpleConcurrentArrayQueue<>(capacity, true);
+        return new SimpleConcurrentArrayQueue<>(capacity);
     }
 
-    @Test
+    @Test(priority = OVERFLOW_SINGLE)
     public void testTailOverflow() {
         SimpleConcurrentArrayQueue<String> queue = createQueue(2, false);
         queue.offer("A");
         queue.offer("B");
         queue.poll();
         queue.poll();
-        long tail = queue.max_tail() - queue.capacity() + 1;
+        int tail = queue.max_tail() - queue.capacity() + 1;
         Assert.assertEquals(tail % queue.capacity(), 0);
 
-        queue.tailSequence.set(tail);
-        queue.headSequence.set(tail);
+        queue.tail.set(tail);
 
         Assert.assertTrue(queue.offer("C"));
         Assert.assertTrue(queue.offer("D"));
@@ -83,11 +82,11 @@ public class SimpleConcurrentArrayQueueTest extends BaseArrayQueueTest {
     protected void testOverflow(int capacity, int iterations) {
         SimpleConcurrentArrayQueue<String> queue = createQueue(capacity, false);
         int maxValue = queue.max_tail();
-        long tail = maxValue - (maxValue % capacity);
+        int tail = maxValue - (maxValue % capacity);
         testOverflow(capacity, iterations, tail, queue);
     }
 
-    private void testOverflow(int capacity, int iterations, long tail, SimpleConcurrentArrayQueue<String> queue) {
+    private void testOverflow(int capacity, int iterations, int tail, SimpleConcurrentArrayQueue<String> queue) {
 
         initQueueOverflow(queue, capacity, tail);
         char c = 'A';
@@ -99,7 +98,7 @@ public class SimpleConcurrentArrayQueueTest extends BaseArrayQueueTest {
         System.out.println(queue);
     }
 
-    private void initQueueOverflow(SimpleConcurrentArrayQueue<String> queue, int capacity, long tail) {
+    private void initQueueOverflow(SimpleConcurrentArrayQueue<String> queue, int capacity, int tail) {
         Assert.assertEquals(tail % queue.capacity(), 0);
 
         for (int i = 0; i < capacity; i++) {
@@ -107,8 +106,7 @@ public class SimpleConcurrentArrayQueueTest extends BaseArrayQueueTest {
             queue.poll();
         }
 
-        queue.tailSequence.set(tail);
-        queue.headSequence.set(tail);
+        queue.tail.set(tail);
 
         System.out.println(queue);
     }
@@ -126,7 +124,7 @@ public class SimpleConcurrentArrayQueueTest extends BaseArrayQueueTest {
 
         final SimpleConcurrentArrayQueue<String> queue = createQueue(capacity, WRITE_STATISTIC);
         int maxValue = queue.max_tail();
-        long tail = maxValue - (maxValue % capacity) - capacity;
+        int tail = maxValue - (maxValue % capacity) - capacity;
 
         initQueueOverflow(queue, capacity, tail);
 
@@ -143,7 +141,7 @@ public class SimpleConcurrentArrayQueueTest extends BaseArrayQueueTest {
 
         final SimpleConcurrentArrayQueue<String> queue = createQueue(capacity, WRITE_STATISTIC);
         int maxValue = queue.max_tail();
-        long tail = maxValue - (maxValue % capacity) - capacity;
+        int tail = maxValue - (maxValue % capacity) - capacity;
 
         initQueueOverflow(queue, capacity, tail);
 

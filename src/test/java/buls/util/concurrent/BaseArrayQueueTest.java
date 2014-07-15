@@ -1,8 +1,8 @@
 package buls.util.concurrent;
 
 import buls.util.concurrent.research.QueueWithStatistic;
-import org.junit.Assert;
-import org.junit.Test;
+import org.testng.Assert;
+import org.testng.annotations.Test;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -20,7 +20,78 @@ public abstract class BaseArrayQueueTest {
     public static final boolean WRITE_STATISTIC = true;
     public static final int THRESHOLD = 1_000_000;
 
-    @Test
+
+    public static final int SINGLE_THREAD = 100;
+    public static final int MULTI_THREADS = 95;
+    public static final int OVERFLOW_SINGLE = 90;
+    public static final int OVERFLOW_MULTI = 85;
+
+    @Test(priority = SINGLE_THREAD)
+    public void testOne() {
+        int capacity = 2;
+        Queue<String> queue = createQueue(capacity, WRITE_STATISTIC);
+
+        //заполнили
+        Assert.assertTrue(queue.offer("Раз"));
+        Assert.assertTrue(queue.offer("Два"));
+        Assert.assertFalse(queue.offer("Три"));
+
+        //все забрали
+        Assert.assertEquals("Раз", queue.poll());
+        Assert.assertEquals("Два", queue.poll());
+        Assert.assertTrue(queue.poll() == null);
+    }
+
+    @Test(priority = SINGLE_THREAD)
+    public void testTwo() {
+        Queue<String> queue = createQueue(2, false);
+        queue.offer("Раз");
+        queue.offer("Два");
+        //взяли
+        Assert.assertEquals("Раз", queue.poll());
+
+        boolean offer = queue.offer("Три");
+        Assert.assertTrue(offer);
+
+        Assert.assertFalse(queue.offer("Четыре"));
+
+        Assert.assertEquals("Два", queue.poll());
+        Assert.assertEquals("Три", queue.poll());
+        Assert.assertTrue(queue.poll() == null);
+    }
+
+    @Test(priority = SINGLE_THREAD)
+    public void testThree() {
+        Queue<String> queue = createQueue(0, false);
+        Assert.assertFalse(queue.offer("Раз"));
+        Assert.assertTrue(queue.poll() == null);
+    }
+
+    @Test(priority = SINGLE_THREAD)
+    public void testFour() {
+        Queue<String> queue = createQueue(2, false);
+        Assert.assertTrue(queue.poll() == null);
+        Assert.assertTrue(queue.poll() == null);
+        Assert.assertTrue(queue.poll() == null);
+    }
+
+    @Test(priority = SINGLE_THREAD)
+    public void testFive() {
+        Queue<String> queue = createQueue(2, false);
+        queue.offer("Раз");
+        queue.offer("Два");
+        //взяли
+        Assert.assertEquals("Раз", queue.poll());
+
+        boolean offer = queue.offer("Три");
+        Assert.assertTrue(offer);
+
+        Assert.assertEquals("Два", queue.poll());
+
+        Assert.assertTrue(queue.offer("Четыре"));
+    }
+
+    @Test(priority = MULTI_THREADS)
     public void testInsertAnGetsInConcurrentMode0() {
         int inserts = 1;
         int attemptsPerInsert = 100;
@@ -29,7 +100,7 @@ public abstract class BaseArrayQueueTest {
         testQueueConcurrently(capacity, inserts, attemptsPerInsert, getters, "testInsertAnGetsInConcurrentMode0", THRESHOLD);
     }
 
-    @Test
+    @Test(priority = MULTI_THREADS)
     public void testInsertAnGetsInConcurrentMode1() {
         int capacity = 1;
         int inserts = 10;
@@ -39,7 +110,7 @@ public abstract class BaseArrayQueueTest {
         testQueueConcurrently(capacity, inserts, attemptsPerInsert, getters, "testInsertAnGetsInConcurrentMode1", THRESHOLD);
     }
 
-    @Test
+    @Test(priority = MULTI_THREADS)
     public void testInsertAnGetsInConcurrentMode2() {
         int inserts = 10;
         int attemptsPerInsert = 2;
@@ -49,7 +120,7 @@ public abstract class BaseArrayQueueTest {
         testQueueConcurrently(capacity, inserts, attemptsPerInsert, getters, "testInsertAnGetsInConcurrentMode2", THRESHOLD);
     }
 
-    @Test
+    @Test(priority = MULTI_THREADS)
     public void testInsertAnGetsInConcurrentMode3() {
         int inserts = 50;
         int attemptsPerInsert = 1000;
@@ -59,7 +130,7 @@ public abstract class BaseArrayQueueTest {
         testQueueConcurrently(capacity, inserts, attemptsPerInsert, getters, "testInsertAnGetsInConcurrentMode3", THRESHOLD);
     }
 
-    @Test
+    @Test(priority = MULTI_THREADS)
     public void testInsertAnGetsInConcurrentMode4() {
         int inserts = 50;
         int attemptsPerInsert = 100;
@@ -69,7 +140,7 @@ public abstract class BaseArrayQueueTest {
         testQueueConcurrently(capacity, inserts, attemptsPerInsert, getters, "testInsertAnGetsInConcurrentMode4", THRESHOLD);
     }
 
-    @Test
+    @Test(priority = MULTI_THREADS)
     public void testInsertAnGetsInConcurrentMode5() {
         int inserts = 1;
         int attemptsPerInsert = 1_000_000;
@@ -79,7 +150,7 @@ public abstract class BaseArrayQueueTest {
         testQueueConcurrently(capacity, inserts, attemptsPerInsert, getters, "testInsertAnGetsInConcurrentMode4", THRESHOLD * 2);
     }
 
-    @Test
+    @Test(priority = MULTI_THREADS)
     public void testInsertAnGetsInConcurrentMode6() {
         int inserts = 1;
         int attemptsPerInsert = 1_000_000;
@@ -89,7 +160,7 @@ public abstract class BaseArrayQueueTest {
         testQueueConcurrently(capacity, inserts, attemptsPerInsert, getters, "testInsertAnGetsInConcurrentMode6", THRESHOLD * 2);
     }
 
-    @Test
+    @Test(priority = MULTI_THREADS)
     public void testInsertAnGetsInConcurrentMode7() {
         int inserts = 3;
         int attemptsPerInsert = 100_000;
@@ -99,7 +170,7 @@ public abstract class BaseArrayQueueTest {
         testQueueConcurrently(capacity, inserts, attemptsPerInsert, getters, "testInsertAnGetsInConcurrentMode7", THRESHOLD * 2);
     }
 
-    @Test
+    @Test(priority = MULTI_THREADS)
     public void testInsertAnGetsInConcurrentMode8() {
         int inserts = 3;
         int attemptsPerInsert = 100_000;
@@ -221,73 +292,7 @@ public abstract class BaseArrayQueueTest {
         return new InserterRunnable(startTrigger, attemptsPerInsert, queue, offerFailCounter, endTrigger, threads, threshold);
     }
 
-
-    @Test
-    public void testOne() {
-        int capacity = 2;
-        Queue<String> queue = createQueue(capacity, WRITE_STATISTIC);
-
-        //заполнили
-        Assert.assertTrue(queue.offer("Раз"));
-        Assert.assertTrue(queue.offer("Два"));
-        Assert.assertFalse(queue.offer("Три"));
-
-        //все забрали
-        Assert.assertEquals("Раз", queue.poll());
-        Assert.assertEquals("Два", queue.poll());
-        Assert.assertTrue(queue.poll() == null);
-    }
-
     protected abstract Queue<String> createQueue(int capacity, boolean writeStatistic);
-
-    @Test
-    public void testTwo() {
-        Queue<String> queue = createQueue(2, false);
-        queue.offer("Раз");
-        queue.offer("Два");
-        //взяли
-        Assert.assertEquals("Раз", queue.poll());
-
-        boolean offer = queue.offer("Три");
-        Assert.assertTrue(offer);
-
-        Assert.assertFalse(queue.offer("Четыре"));
-
-        Assert.assertEquals("Два", queue.poll());
-        Assert.assertEquals("Три", queue.poll());
-        Assert.assertTrue(queue.poll() == null);
-    }
-
-    @Test
-    public void testThree() {
-        Queue<String> queue = createQueue(0, false);
-        Assert.assertFalse(queue.offer("Раз"));
-        Assert.assertTrue(queue.poll() == null);
-    }
-
-    @Test
-    public void testFour() {
-        Queue<String> queue = createQueue(2, false);
-        Assert.assertTrue(queue.poll() == null);
-        Assert.assertTrue(queue.poll() == null);
-        Assert.assertTrue(queue.poll() == null);
-    }
-
-    @Test
-    public void testFive() {
-        Queue<String> queue = createQueue(2, false);
-        queue.offer("Раз");
-        queue.offer("Два");
-        //взяли
-        Assert.assertEquals("Раз", queue.poll());
-
-        boolean offer = queue.offer("Три");
-        Assert.assertTrue(offer);
-
-        Assert.assertEquals("Два", queue.poll());
-
-        Assert.assertTrue(queue.offer("Четыре"));
-    }
 
     private void checkFail(long fails, int threshold, Queue queue, List<Thread> threads) {
         if (fails > threshold) {

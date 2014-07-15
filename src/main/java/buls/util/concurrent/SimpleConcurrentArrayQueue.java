@@ -1,16 +1,15 @@
 package buls.util.concurrent;
 
-import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import sun.misc.Unsafe;
 
 import java.lang.reflect.Field;
-import java.util.concurrent.locks.ReentrantReadWriteLock;
+import java.util.concurrent.atomic.AtomicInteger;
 
 /**
  * Created by Bulgakov Alex on 14.06.2014.
  */
-public class SimpleConcurrentArrayQueue<E> extends AbstractConcurrentArrayQueue<E> {
+public class SimpleConcurrentArrayQueue<E> extends AbstractArrayQueue<E> {
 
     private static final Unsafe unsafe;
 
@@ -39,14 +38,15 @@ public class SimpleConcurrentArrayQueue<E> extends AbstractConcurrentArrayQueue<
         shift = 31 - Integer.numberOfLeadingZeros(scale);
     }
 
-    private final ReentrantReadWriteLock rwl = new ReentrantReadWriteLock();
+    private final int MAX_TAIL;
+
+
+    AtomicInteger tail = new AtomicInteger();
+    private AtomicInteger amount = new AtomicInteger();
 
     public SimpleConcurrentArrayQueue(int capacity) {
-        this(capacity, true);
-    }
-
-    protected SimpleConcurrentArrayQueue(int capacity, boolean checkInterruption) {
-        super(capacity, checkInterruption);
+        super(capacity);
+        MAX_TAIL = Integer.MAX_VALUE - (Integer.MAX_VALUE % capacity) - 1;
     }
 
     private static long byteOffset(int i) {
@@ -54,84 +54,55 @@ public class SimpleConcurrentArrayQueue<E> extends AbstractConcurrentArrayQueue<
     }
 
     @Override
-    protected final int set(@NotNull final E e, final long tail, final long currentTail, long head) {
-        final int index = computeIndex(currentTail);
-        if (_insert(e, index)) {
-            setNextTail(tail, currentTail);
-            readUnlock();
-            writeLock();
-            try {
-                long h = getHead();
-                boolean tailOverflow = currentTail < tail;
-                boolean headOverflow = h < head;
-                long hLevel = h / capacity();
-                long tLevel = currentTail / capacity();
-                if (hLevel <= tLevel && (tailOverflow == headOverflow || !tailOverflow)) {
-                    boolean behindHead = !(h <= currentTail);
-                    if (behindHead) {
-                        boolean b = _cas(index, e, null);
-                        if(b) {
-                            return GET_CURRENT_TAIL;
-                        } else {
-                            String.valueOf(b);
-                        }
-                    }
-                }
-            } finally {
-                readLock();
-                writeUnlock();
-            }
-            return SUCCESS;
-        } else return GO_NEXT;
-    }
-
-    @Override
-    @Nullable
-    protected final E get(long head, long currentHead) {
-        final int index = computeIndex(currentHead);
-        E e = _retrieve(index);
-        if (e != null) {
-            setNextHead(head, currentHead);
-            return e;
-        }
-        return null;
-    }
-
-    @Override
     public boolean offer(@Nullable E e) {
-        try {
-            readLock();
-            return super.offer(e);
-        } finally {
-            readUnlock();
+        int amount = this.amount.getAndIncrement();
+        boolean full = amount >= capacity();
+
+        boolean success = false;
+        if (!full) {
+            int tail = getAndIncrement(this.tail);
+            int index = _index(tail);
+            success = _insert(e, index);
+            if (!success) this.tail.decrementAndGet();
         }
+
+        if (full || !success) this.amount.decrementAndGet();
+        return success;
+    }
+
+    protected int getAndIncrement(AtomicInteger counter) {
+        int result = counter.getAndIncrement();
+        boolean overflow = result > max_tail() || result < 0;
+        if (overflow) {
+            int expect = result + 1;
+            while (expect < 0 || expect > max_tail()) {
+                boolean zero = counter.compareAndSet(expect, 0);
+                if (zero) return 0;
+                expect = counter.get();
+            }
+            result = counter.getAndIncrement();
+        }
+        return result;
+    }
+
+    private int _index(int counter) {
+        return (counter < 0 ? -counter : counter) % capacity();
     }
 
     @Nullable
     @Override
     public E poll() {
-        try {
-            readLock();
-            return super.poll();
-        } finally {
-            readUnlock();
-        }
-    }
+        int amount = this.amount.get();
+        boolean empty = amount <= 0;
 
-    private void readUnlock() {
-        rwl.readLock().unlock();
-    }
+        if (empty) return null;
 
-    private void readLock() {
-        rwl.readLock().lock();
-    }
+        int head = this.tail.get() - amount;
+        int index = _index(head);
+        E e = _retrieve(index);
+        if (e != null) this.amount.getAndDecrement();
+        return e;
 
-    private void writeUnlock() {
-        rwl.writeLock().unlock();
-    }
-
-    private void writeLock() {
-        rwl.writeLock().lock();
     }
 
     @Nullable
@@ -148,11 +119,8 @@ public class SimpleConcurrentArrayQueue<E> extends AbstractConcurrentArrayQueue<
     @Nullable
     protected final E _retrieve(int index) {
         E e = _get(index);
-        if (_cas(index, e, null)) {
-            return e;
-        } else {
-            return null;
-        }
+        if (_cas(index, e, null)) return e;
+        else return null;
     }
 
     private long checkedByteOffset(int i) {
@@ -174,7 +142,11 @@ public class SimpleConcurrentArrayQueue<E> extends AbstractConcurrentArrayQueue<
     }
 
     @Override
-    protected long computeHead(long head) {
-        return _increment(head);
+    public int size() {
+        return amount.get();
+    }
+
+    public int max_tail() {
+        return MAX_TAIL;
     }
 }

@@ -8,7 +8,7 @@ import java.util.concurrent.atomic.AtomicLongArray;
 /**
  * Created by Bulgakov Alex on 31.05.2014.
  */
-public class ConcurrentArrayQueue<E> extends AbstractConcurrentArrayQueue<E> {
+public class ConcurrentArrayQueue<E> extends AbstractHeadTailArrayQueue<E> {
 
     protected static final long PUTTING = Long.MAX_VALUE;
     protected static final long POOLING = Long.MIN_VALUE;
@@ -135,5 +135,11 @@ public class ConcurrentArrayQueue<E> extends AbstractConcurrentArrayQueue<E> {
 
     private boolean startPooling(int index, long level) {
         return _levelCas(index, level, POOLING);
+    }
+
+    protected long nextLevelCounter(long counter) {
+        if (counter == MAX_VALUE) return 0;
+        int capacity = capacity();
+        return counter - (counter % capacity) + capacity;
     }
 }

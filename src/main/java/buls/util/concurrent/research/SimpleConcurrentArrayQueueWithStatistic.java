@@ -23,7 +23,7 @@ public class SimpleConcurrentArrayQueueWithStatistic<E> extends SimpleConcurrent
     protected final boolean writeStatistic;
 
     public SimpleConcurrentArrayQueueWithStatistic(int capacity, boolean writeStatistic) {
-        super(capacity, true);
+        super(capacity);
         this.writeStatistic = writeStatistic;
     }
 

@@ -5,43 +5,22 @@ import org.jetbrains.annotations.Nullable;
 
 import java.util.AbstractQueue;
 import java.util.Iterator;
-import java.util.concurrent.atomic.AtomicLong;
 
 /**
- * Created by Alex on 25.06.2014.
+ * Created by alexander on 15.07.14.
  */
 public abstract class AbstractArrayQueue<E> extends AbstractQueue<E> {
-
-    public final static int SUCCESS = 0;
-    public final static int GO_NEXT = 1;
-    public final static int GET_CURRENT_TAIL = 2;
-    public final static int TRY_AGAIN = 4;
-    public final static int INTERRUPTED = 5;
-
-    static final int MAX_VALUE = Integer.MAX_VALUE;
-
-    protected final AtomicLong tailSequence = new AtomicLong();
-    protected final AtomicLong headSequence = new AtomicLong();
-
     @NotNull
     protected final Object[] elements;
-    private final int MAX_TAIL;
 
-    protected AbstractArrayQueue(int capacity) {
-        MAX_TAIL = capacity == 0 ? 0 : (MAX_VALUE - Integer.MAX_VALUE % capacity) - 1;
+    public AbstractArrayQueue(int capacity) {
         this.elements = new Object[capacity];
     }
 
     @NotNull
     @Override
     public String toString() {
-        final long h = getHead();
-        final long t = getTail();
-        return "h: " + h + " (" + computeIndex(h) + ")"
-                + ", t: " + t + " (" + computeIndex(t) + ")"
-                + ", c:" + capacity()
-                + ", mT:" + max_tail()
-                + "\n" + _string();
+        return _string();
     }
 
     @NotNull
@@ -70,75 +49,6 @@ public abstract class AbstractArrayQueue<E> extends AbstractQueue<E> {
         return elements.length;
     }
 
-    protected final int delta(final long head, final long tail) {
-        final long delta;
-        if (tail >= head) delta = tail - head;
-        else delta = tail - 0 + max_tail() - head + 1;
-        return (int) delta;
-    }
-
-    protected final long getTail() {
-        return tailSequence.get();
-    }
-
-    protected final long getHead() {
-        return headSequence.get();
-    }
-
-    protected abstract boolean setElement(E e, long tail, long head);
-
-    protected abstract E getElement(long head, long tail);
-
-    protected final int max_tail() {
-        return MAX_TAIL;
-    }
-
-    @Override
-    public final int size() {
-        long tail = getTail();
-        long head = getHead();
-        return delta(head, tail);
-    }
-
-    protected final int computeIndex(long counter) {
-        return (int) (counter % capacity());
-    }
-
-    @Override
-    public boolean offer(@Nullable E e) {
-        if (e == null) throw new IllegalArgumentException("element cannot be null");
-
-        final int capacity = capacity();
-        if (capacity == 0) return false;
-
-        final long tail = getTail();
-        final long head = getHead();
-        final long size = delta(head, tail);
-
-        return (size < capacity) && setElement(e, tail, head);
-    }
-
-    @Nullable
-    @Override
-    public E poll() {
-        final int capacity = capacity();
-
-        if (capacity == 0) return null;
-
-        final long tail = getTail();
-        final long head = getHead();
-        int size = delta(head, tail);
-
-        boolean notEmpty = size > 0;
-        return notEmpty ? getElement(head, tail) : null;
-    }
-
-    @NotNull
-    @Override
-    public E peek() {
-        throw new UnsupportedOperationException();
-    }
-
     @Nullable
     protected E _get(int index) {
         return (E) elements[index];
@@ -155,87 +65,9 @@ public abstract class AbstractArrayQueue<E> extends AbstractQueue<E> {
         return e;
     }
 
-    protected boolean setNextHead(long oldHead, long insertedHead) {
-        return next(oldHead, insertedHead, headSequence);
-    }
-
-    protected boolean setNextTail(long oldTail, long insertedTail) {
-        return next(oldTail, insertedTail, tailSequence);
-    }
-
-    private boolean next(long oldVal, long insertedVal, @NotNull AtomicLong sequence) {
-        assert insertedVal >= 0;
-        assert insertedVal <= max_tail();
-
-        boolean ivOverflow = oldVal > insertedVal;
-        long newValue = _increment(insertedVal);
-        boolean nvOverflow = newValue == 0 && insertedVal == max_tail();
-
-        assert !(nvOverflow && ivOverflow) : oldVal + " " + newValue + " " + insertedVal + " " + max_tail();
-
-        boolean set = cas(sequence, oldVal, newValue);
-        while (!set) {
-            long currentValue = sequence.get();
-
-            boolean tailRange = currentValue > oldVal
-                    && currentValue <= max_tail();
-            boolean headRange = currentValue < newValue;
-
-            if (ivOverflow || nvOverflow) {
-                assertRange(oldVal, insertedVal, newValue, currentValue, tailRange, headRange);
-                if (tailRange || headRange) set = cas(sequence, currentValue, newValue);
-                else break;
-            } else if (currentValue < newValue) set = cas(sequence, currentValue, newValue);
-            else break;
-        }
-        return set;
-    }
-
-    private void assertRange(long oldVal, long insertedVal, long newValue, long currentValue, boolean tailRange, boolean headRange) {
-        assert !(tailRange && headRange) : tailRange + " " + headRange + " "
-                + oldVal + " " + insertedVal + " " + newValue + " " + currentValue + " " + max_tail() + "\n" + this;
-    }
-
-    protected long _increment(long counter) {
-        return (counter == max_tail()) ? 0 : counter + 1;
-    }
-
-    private boolean cas(@NotNull AtomicLong counter, long expected, long update) {
-        return counter.compareAndSet(expected, update);
-    }
-
-    protected long computeTail(long currentTail, int calculateType) {
-        if (calculateType == GO_NEXT) {
-            currentTail = _increment(currentTail);
-        } else {
-            currentTail = getTail();
-            assert calculateType == GET_CURRENT_TAIL;
-        }
-        return currentTail;
-    }
-
-    protected final boolean checkTail(long tailForInserting, int capacity) {
-        long head = getHead();
-        long amount = delta(head, tailForInserting);
-        return amount > capacity;
-    }
-
-    protected final boolean checkHead(long headForGetting, long tail) {
-        boolean overflow;
-        if (headForGetting == tail) {
-            overflow = true;
-        } else {
-            int delta = delta(headForGetting, tail);
-            int capacity = capacity();
-            overflow = delta > capacity;
-        }
-        return overflow;
-    }
-
-    protected long computeHead(long head) {
-        long h = getHead();
-
-        if (head < h) return h;
-        else return _increment(head);
+    @NotNull
+    @Override
+    public E peek() {
+        throw new UnsupportedOperationException();
     }
 }

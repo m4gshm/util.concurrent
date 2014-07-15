@@ -2,7 +2,6 @@ package buls.util.concurrent.research;
 
 
 import buls.util.concurrent.BaseArrayQueueTest;
-import org.junit.Test;
 
 /**
  * Created by Bulgakov Alex on 31.05.2014.

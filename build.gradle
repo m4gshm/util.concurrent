@@ -26,7 +26,7 @@ jar {
 compileJava.options.encoding = 'UTF-8'
 
 test {
-//    useTestNG()
+    useTestNG()
     //testLogging.showStandardStreams = true
     enableAssertions = true;
 }
@@ -39,5 +39,5 @@ dependencies {
     apt 'org.openjdk.jmh:jmh-generator-annprocess:0.9'
     compile 'org.openjdk.jmh:jmh-core:0.9'
     compile 'org.jetbrains:annotations:13.0'
-    testCompile 'junit:junit:4.11'
+    testCompile 'org.testng:testng:6.8.8'
 }
