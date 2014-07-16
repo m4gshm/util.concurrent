@@ -43,6 +43,7 @@ public class SimpleConcurrentArrayQueue<E> extends AbstractArrayQueue<E> {
 
     AtomicInteger tail = new AtomicInteger();
     private AtomicInteger amount = new AtomicInteger();
+    private volatile boolean tailOverflow;
 
     public SimpleConcurrentArrayQueue(int capacity) {
         super(capacity);
@@ -67,16 +68,26 @@ public class SimpleConcurrentArrayQueue<E> extends AbstractArrayQueue<E> {
 
     @Override
     public boolean offer(@Nullable E e) {
-        int amount = this.amount.getAndIncrement();
-        boolean full = amount >= capacity();
+        //increment amount
+        int amount;
+        int nextAmount;
+        do {
+            amount = this.amount.get();
+            boolean full = amount == capacity();
+            assertAmount(amount);
+
+            if (full) return false;
+            nextAmount = amount + 1;
+        } while (!this.amount.compareAndSet(amount, nextAmount));
+
+        assertAmount(amount);
 
         boolean success;
-        if (!full) {
-            int tail = getAndIncrement(this.tail);
-            int index = _index(tail);
-            success = _insert(e, index);
-            if (!success) getAndDecrement(this.tail);
-        } else success = false;
+        int tail = getAndIncrementTail();
+        int index = _index(tail);
+        success = _insert(e, index);
+        //assert success : tail + " " + index + "\n" + this;
+        if (!success) getAndDecrementTail();
 
         if (!success) {
             this.amount.decrementAndGet();
@@ -90,47 +101,65 @@ public class SimpleConcurrentArrayQueue<E> extends AbstractArrayQueue<E> {
     @Override
     public E poll() {
         int tail = this.tail.get();
-        int amount = this.amount.getAndDecrement();
-        boolean empty = amount <= 0;
 
-        E e;
-        if (empty) e = null;
-        else {
-            int index = _index(tail) - amount;
-            if (index >= 0) {
-                e = _retrieve(index);
-                assert e != null : tail + " " + _index(tail) + " " + amount + " " + index + "\n" + this;
-            } else e = null;
-        }
+        //decrement amount
+        int amount;
+        int nextAmount;
+        do {
+            amount = this.amount.get();
+            assertAmount(amount);
+
+            boolean empty = amount == 0;
+            if (empty) return null;
+
+            nextAmount = amount - 1;
+
+        } while (!this.amount.compareAndSet(amount, nextAmount));
+
+        assertAmount(amount);
+        //assert amount <= tail : tail + " " + amount;
+
+        int head = (tail > amount) ? tail - amount : 0;
+        int index = _index(head);
+        E e = _retrieve(index);
+
+        //assert e != null : tail + " " + head + " " + amount + " " + index + "\n" + this;
+
 
         if (e == null) {
-            this.amount.incrementAndGet();
+            int i = this.amount.incrementAndGet();
             failGet();
-        }
-
-        successGet();
+        } else successGet();
         return e;
     }
 
-    protected int getAndDecrement(AtomicInteger counter) {
-        int result = counter.getAndDecrement();
+    private void assertAmount(int amount) {
+        assert amount <= capacity() : amount + "\n" + this;
+        assert amount >= 0 : amount + "\n" + this;
+    }
+
+    protected int getAndDecrementTail() {
+        int result = tail.getAndDecrement();
         boolean overflow = isOverflow(result);
         if (overflow) {
             int expect = result - (result < 0 ? -1 : 1);
-            if (reset(counter, expect, max_tail())) return 0;
-            result = counter.getAndIncrement();
+            if (reset(tail, expect, max_tail())) return 0;
+            result = tail.getAndIncrement();
         }
         return result;
     }
 
-    protected int getAndIncrement(AtomicInteger counter) {
-        int result = counter.getAndIncrement();
+    protected int getAndIncrementTail() {
+        int result = tail.getAndIncrement();
         boolean overflow = isOverflow(result);
         if (overflow) {
             int expect = result + (result < 0 ? -1 : 1);
-            if (reset(counter, expect, 1)) return 0;
-            result = counter.getAndIncrement();
-        }
+            if (reset(tail, expect, 1)) {
+                tailOverflow = true;
+                return 0;
+            }
+            result = tail.getAndIncrement();
+        } else if (result < capacity()) tailOverflow = false;
         return result;
     }
 

@@ -53,7 +53,6 @@ public class SimpleConcurrentArrayQueueTest extends BaseArrayQueueTest {
             Assert.assertTrue(queue.poll() != null);
         }
 
-
         System.out.println(queue);
     }
 
