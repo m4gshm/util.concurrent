@@ -57,21 +57,21 @@ public class SimpleConcurrentArrayQueueTest extends BaseArrayQueueTest {
         System.out.println(queue);
     }
 
-    @Test
+    @Test(priority = OVERFLOW_SINGLE)
     public void testTailOverflow1() {
         int capacity = 1;
         int iterations = 1000;
         testOverflow(capacity, iterations);
     }
 
-    @Test
+    @Test(priority = OVERFLOW_SINGLE)
     public void testTailOverflow2() {
         int capacity = 2;
         int iterations = 1000;
         testOverflow(capacity, iterations);
     }
 
-    @Test
+    @Test(priority = OVERFLOW_SINGLE)
     public void testTailOverflow3() {
         int capacity = 3;
         int iterations = 1000;
@@ -115,7 +115,7 @@ public class SimpleConcurrentArrayQueueTest extends BaseArrayQueueTest {
         return c;
     }
 
-    @Test
+    @Test(priority = OVERFLOW_MULTI)
     public void testOverflowInConcurrentMode6() {
         int inserts = 2;
         int attemptsPerInsert = 1_000_000;
@@ -132,7 +132,7 @@ public class SimpleConcurrentArrayQueueTest extends BaseArrayQueueTest {
                 (int) (inserts * attemptsPerInsert * 1.5), (int) (getters * attemptsPerInsert * 1.5));
     }
 
-    @Test
+    @Test(priority = OVERFLOW_MULTI)
     public void testOverflowInConcurrentMode7() {
         int inserts = 2;
         int attemptsPerInsert = 1_000_000;

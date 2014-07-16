@@ -1,5 +1,6 @@
 package buls.util.concurrent;
 
+import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import sun.misc.Unsafe;
 
@@ -40,17 +41,28 @@ public class SimpleConcurrentArrayQueue<E> extends AbstractArrayQueue<E> {
 
     private final int MAX_TAIL;
 
-
     AtomicInteger tail = new AtomicInteger();
     private AtomicInteger amount = new AtomicInteger();
 
     public SimpleConcurrentArrayQueue(int capacity) {
         super(capacity);
-        MAX_TAIL = Integer.MAX_VALUE - (Integer.MAX_VALUE % capacity) - 1;
+        MAX_TAIL = capacity <= 0 ? 0 : Integer.MAX_VALUE - (Integer.MAX_VALUE % capacity) - 1;
     }
 
     private static long byteOffset(int i) {
         return ((long) i << shift) + base;
+    }
+
+    @NotNull
+    @Override
+    public String toString() {
+        final int a = amount.get();
+        final int t = tail.get();
+        return "t: " + t + " (" + _index(t) + ")"
+                + ", a: " + a
+                + ", c:" + capacity()
+                + ", mT:" + max_tail()
+                + "\n" + super.toString();
     }
 
     @Override
@@ -58,51 +70,85 @@ public class SimpleConcurrentArrayQueue<E> extends AbstractArrayQueue<E> {
         int amount = this.amount.getAndIncrement();
         boolean full = amount >= capacity();
 
-        boolean success = false;
+        boolean success;
         if (!full) {
             int tail = getAndIncrement(this.tail);
             int index = _index(tail);
             success = _insert(e, index);
-            if (!success) this.tail.decrementAndGet();
-        }
+            if (!success) getAndDecrement(this.tail);
+        } else success = false;
 
-        if (full || !success) this.amount.decrementAndGet();
+        if (!success) {
+            this.amount.decrementAndGet();
+            failSet();
+        } else successSet();
+
         return success;
-    }
-
-    protected int getAndIncrement(AtomicInteger counter) {
-        int result = counter.getAndIncrement();
-        boolean overflow = result > max_tail() || result < 0;
-        if (overflow) {
-            int expect = result + 1;
-            while (expect < 0 || expect > max_tail()) {
-                boolean zero = counter.compareAndSet(expect, 0);
-                if (zero) return 0;
-                expect = counter.get();
-            }
-            result = counter.getAndIncrement();
-        }
-        return result;
-    }
-
-    private int _index(int counter) {
-        return (counter < 0 ? -counter : counter) % capacity();
     }
 
     @Nullable
     @Override
     public E poll() {
-        int amount = this.amount.get();
+        int tail = this.tail.get();
+        int amount = this.amount.getAndDecrement();
         boolean empty = amount <= 0;
 
-        if (empty) return null;
+        E e;
+        if (empty) e = null;
+        else {
+            int index = _index(tail) - amount;
+            if (index >= 0) {
+                e = _retrieve(index);
+                assert e != null : tail + " " + _index(tail) + " " + amount + " " + index + "\n" + this;
+            } else e = null;
+        }
 
-        int head = this.tail.get() - amount;
-        int index = _index(head);
-        E e = _retrieve(index);
-        if (e != null) this.amount.getAndDecrement();
+        if (e == null) {
+            this.amount.incrementAndGet();
+            failGet();
+        }
+
+        successGet();
         return e;
+    }
 
+    protected int getAndDecrement(AtomicInteger counter) {
+        int result = counter.getAndDecrement();
+        boolean overflow = isOverflow(result);
+        if (overflow) {
+            int expect = result - (result < 0 ? -1 : 1);
+            if (reset(counter, expect, max_tail())) return 0;
+            result = counter.getAndIncrement();
+        }
+        return result;
+    }
+
+    protected int getAndIncrement(AtomicInteger counter) {
+        int result = counter.getAndIncrement();
+        boolean overflow = isOverflow(result);
+        if (overflow) {
+            int expect = result + (result < 0 ? -1 : 1);
+            if (reset(counter, expect, 1)) return 0;
+            result = counter.getAndIncrement();
+        }
+        return result;
+    }
+
+    private boolean reset(AtomicInteger counter, int expect, int next) {
+        while (isOverflow(expect)) {
+            boolean resetTail = counter.compareAndSet(expect, next);
+            if (resetTail) return true;
+            expect = counter.get();
+        }
+        return false;
+    }
+
+    private boolean isOverflow(int counter) {
+        return counter < 0 || counter > max_tail();
+    }
+
+    private int _index(int counter) {
+        return counter % capacity();
     }
 
     @Nullable
@@ -148,5 +194,21 @@ public class SimpleConcurrentArrayQueue<E> extends AbstractArrayQueue<E> {
 
     public int max_tail() {
         return MAX_TAIL;
+    }
+
+    protected void failGet() {
+
+    }
+
+    protected void successGet() {
+
+    }
+
+    protected void failSet() {
+
+    }
+
+    protected void successSet() {
+
     }
 }

@@ -13,12 +13,8 @@ public class SimpleConcurrentArrayQueueWithStatistic<E> extends SimpleConcurrent
 
     protected final LongAdder successSet = new LongAdder();
     protected final LongAdder failSet = new LongAdder();
-    protected final LongAdder failLockedSet = new LongAdder();
     protected final LongAdder successGet = new LongAdder();
     protected final LongAdder failGet = new LongAdder();
-
-    protected final LongAdder failNextTail = new LongAdder();
-    protected final LongAdder failNextHead = new LongAdder();
 
     protected final boolean writeStatistic;
 
@@ -27,18 +23,22 @@ public class SimpleConcurrentArrayQueueWithStatistic<E> extends SimpleConcurrent
         this.writeStatistic = writeStatistic;
     }
 
+    @Override
     protected final void failGet() {
         if (writeStatistic) failGet.increment();
     }
 
+    @Override
     protected final void successGet() {
         if (writeStatistic) successGet.increment();
     }
 
+    @Override
     protected final void failSet() {
         if (writeStatistic) failSet.increment();
     }
 
+    @Override
     protected final void successSet() {
         if (writeStatistic) successSet.increment();
     }
@@ -48,12 +48,8 @@ public class SimpleConcurrentArrayQueueWithStatistic<E> extends SimpleConcurrent
         if (writeStatistic) {
             printStream.println("success sets " + successSet);
             printStream.println("fail sets " + failSet);
-            printStream.println("fail locked sets " + failLockedSet);
             printStream.println("success gets " + successGet);
             printStream.println("fail gets " + failGet);
-
-            printStream.println("fail next tail " + failNextTail);
-            printStream.println("fail next head " + failNextHead);
         }
     }
 }

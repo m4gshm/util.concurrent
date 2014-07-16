@@ -147,7 +147,7 @@ public abstract class BaseArrayQueueTest {
         int capacity = 100;
         int getters = 1;
 
-        testQueueConcurrently(capacity, inserts, attemptsPerInsert, getters, "testInsertAnGetsInConcurrentMode4", THRESHOLD * 2);
+        testQueueConcurrently(capacity, inserts, attemptsPerInsert, getters, "testInsertAnGetsInConcurrentMode5", THRESHOLD * 2);
     }
 
     @Test(priority = MULTI_THREADS)
@@ -250,11 +250,9 @@ public abstract class BaseArrayQueueTest {
 
         printStatistic(queue, printStream);
         try {
-            Assert.assertEquals(sourceValues.size(), results.size());
+            Assert.assertEquals(sourceValues.size(), results.size(), queue.toString());
             Collections.sort(sourceValues);
             Collections.sort(results);
-            //System.printStream.println(sourceValues);
-            //System.printStream.println(results);
             Assert.assertEquals(sourceValues, results);
         } finally {
             printStream.println("END " + testName);
