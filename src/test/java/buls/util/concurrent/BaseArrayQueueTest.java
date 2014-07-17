@@ -147,7 +147,7 @@ public abstract class BaseArrayQueueTest {
         int capacity = 100;
         int getters = 1;
 
-        testQueueConcurrently(capacity, inserts, attemptsPerInsert, getters, "testInsertAnGetsInConcurrentMode5", THRESHOLD * 2);
+        testQueueConcurrently(capacity, inserts, attemptsPerInsert, getters, "testInsertAnGetsInConcurrentMode5", THRESHOLD * 10);
     }
 
     @Test(priority = MULTI_THREADS)
@@ -300,7 +300,7 @@ public abstract class BaseArrayQueueTest {
                 thread.interrupt();
             }
             throw new IllegalStateException(fails + " fails, " +threshold +" threshold, \n"
-                    + queue+"\n"+ new String(stream.toByteArray()));
+                    +"\n"+ new String(stream.toByteArray()));
         }
     }
 

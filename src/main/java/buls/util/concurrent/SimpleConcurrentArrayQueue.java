@@ -73,14 +73,25 @@ public class SimpleConcurrentArrayQueue<E> extends AbstractArrayQueue<E> {
         boolean full = amount >= capacity();
 
         boolean success = false;
+        int tail;
         if (!full) {
-            int tail = getAndIncrementTail();
+            tail = getAndIncrementTail();
             int index = _index(tail);
             success = _insert(e, index);
             if (!success) getAndDecrementTail();
+
+            //check inserting behind head
+            int curTail = this.tail.get();
+            if (success && delta(tail, curTail) > capacity()) {
+                assert false : "pizdec " + tail + "," + curTail + "\n" + this;
+            }
         }
 
         if (full || !success) this.amount.decrementAndGet();
+
+        if (success) successSet();
+        else failSet();
+
         return success;
     }
 
@@ -101,6 +112,10 @@ public class SimpleConcurrentArrayQueue<E> extends AbstractArrayQueue<E> {
         int index = _index(head);
         E e = _retrieve(index);
         if (e != null) this.amount.getAndDecrement();
+
+        if (e != null) successGet();
+        else failGet();
+
         return e;
     }
 
@@ -180,6 +195,13 @@ public class SimpleConcurrentArrayQueue<E> extends AbstractArrayQueue<E> {
 
     public final boolean _cas(int i, Object expect, Object update) {
         return compareAndSetRaw(checkedByteOffset(i), expect, update);
+    }
+
+    protected final int delta(final int head, final int tail) {
+        final long delta;
+        if (tail >= head) delta = tail - head;
+        else delta = tail - 0 + max_tail() - head + 1;
+        return (int) delta;
     }
 
     @Override

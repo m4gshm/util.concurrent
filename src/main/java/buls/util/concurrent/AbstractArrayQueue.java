@@ -20,21 +20,33 @@ public abstract class AbstractArrayQueue<E> extends AbstractQueue<E> {
     @NotNull
     @Override
     public String toString() {
-        return _string();
+        return _stringLines();
+    }
+
+    @NotNull
+    protected String _stringLines() {
+        int iMax = elements.length - 1;
+        if (iMax == -1) return "[]";
+
+        StringBuilder b = new StringBuilder();
+        b.append("[\n");
+        for (int i = 0; ; i++) {
+            b.append(i).append(" ").append(_get(i));
+            if (i == iMax) return b.append("\n]").toString();
+            b.append("\n");
+        }
     }
 
     @NotNull
     protected String _string() {
         int iMax = elements.length - 1;
-        if (iMax == -1)
-            return "[]";
+        if (iMax == -1) return "[]";
 
         StringBuilder b = new StringBuilder();
         b.append('[');
         for (int i = 0; ; i++) {
             b.append(_get(i));
-            if (i == iMax)
-                return b.append(']').toString();
+            if (i == iMax)  return b.append(']').toString();
             b.append(',').append(' ');
         }
     }
