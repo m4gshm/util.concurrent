@@ -1,6 +1,5 @@
 package buls.util.concurrent.research;
 
-import buls.util.concurrent.SimpleConcurrentArrayQueue;
 import org.jetbrains.annotations.NotNull;
 
 import java.io.PrintStream;

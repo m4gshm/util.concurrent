@@ -16,13 +16,11 @@ import java.util.concurrent.TimeUnit;
 @State(Scope.Benchmark)
 @OutputTimeUnit(TimeUnit.MILLISECONDS)
 @BenchmarkMode(Mode.Throughput)
-@Warmup(time = 100, timeUnit = TimeUnit.MILLISECONDS)
-@Measurement(timeUnit = TimeUnit.MILLISECONDS, time = 100)
+@Warmup(time = 50, timeUnit = TimeUnit.MILLISECONDS)
+@Measurement(timeUnit = TimeUnit.MILLISECONDS, time = 50)
 public abstract class AbstractBenchmark {
     @Param({"1", "2", "3"})
     public int readers;
-    @Param({"10000", "1000000", "10000000", "2147483647"})
-    public int capacity;
 
     public Service service;
 

@@ -1,6 +1,4 @@
-package buls.util.concurrent;
-
-import buls.util.concurrent.research.SimpleConcurrentArrayQueueWithStatistic;
+package buls.util.concurrent.research;
 
 
 /**

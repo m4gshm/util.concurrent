@@ -29,6 +29,7 @@ test {
     useTestNG()
     //testLogging.showStandardStreams = true
     enableAssertions = true;
+    exclude 'buls/util/concurrent/research/**'
 }
 
 repositories {

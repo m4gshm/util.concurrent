@@ -1,13 +1,13 @@
 package buls.util.concurrent.benchmark;
 
-import buls.util.concurrent.SimpleConcurrentArrayQueue;
 import org.jetbrains.annotations.NotNull;
 
 import java.util.Queue;
+import java.util.concurrent.LinkedBlockingQueue;
 
-public class SCAQ_Benchmark1 extends AbstractBenchmark {
+public class LBQ_Benchmark1 extends BoundedQueueBenchmark {
     @Override @NotNull
     protected Queue<Runnable> createQueue() {
-        return new SimpleConcurrentArrayQueue<>(capacity);
+        return new LinkedBlockingQueue<>(capacity);
     }
 }

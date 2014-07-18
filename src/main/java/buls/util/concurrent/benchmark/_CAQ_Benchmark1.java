@@ -11,7 +11,7 @@ import org.openjdk.jmh.annotations.*;
 import java.util.Queue;
 import java.util.concurrent.TimeUnit;
 
-public class _CAQ_Benchmark1 extends AbstractBenchmark {
+public class _CAQ_Benchmark1 extends BoundedQueueBenchmark {
 
     @Override @NotNull
     protected Queue<Runnable> createQueue() {
