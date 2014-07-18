@@ -3,8 +3,7 @@ package buls.util.concurrent;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
-import java.util.AbstractQueue;
-import java.util.Iterator;
+import java.util.*;
 
 /**
  * Created by alexander on 15.07.14.
@@ -53,8 +52,10 @@ public abstract class AbstractArrayQueue<E> extends AbstractQueue<E> {
 
     @NotNull
     @Override
+    @SuppressWarnings("unchecked")
     public Iterator<E> iterator() {
-        throw new UnsupportedOperationException();
+        List list = Arrays.asList(elements);
+        return Collections.unmodifiableCollection(list).iterator();
     }
 
     public final int capacity() {
@@ -62,6 +63,7 @@ public abstract class AbstractArrayQueue<E> extends AbstractQueue<E> {
     }
 
     @Nullable
+    @SuppressWarnings("unchecked")
     protected E _get(int index) {
         return (E) elements[index];
     }
