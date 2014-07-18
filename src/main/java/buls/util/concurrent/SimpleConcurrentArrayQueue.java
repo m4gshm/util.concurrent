@@ -80,7 +80,7 @@ public class SimpleConcurrentArrayQueue<E> extends AbstractArrayQueue<E> {
             success = _insert(e, index);
 
 //            long attempts = 0;
-//            assert success: e +" " + _get(index) +" " + index + " "+tail +"\n"+this;
+            //assert success: e +" " + _get(index) +" " + index + " "+tail +"\n"+this;
 //            if (attempts > 0) {
 //                if(success) successSetRepeat(attempts); else failSetRepeat(attempts);
 //            }
@@ -133,7 +133,7 @@ public class SimpleConcurrentArrayQueue<E> extends AbstractArrayQueue<E> {
             if (tail != t) {
                 boolean insert = _insert(e, index);
                 tailStealing();
-                assert insert : e +" " + index +" " + tail +" " + t +"\n" + this;
+                //assert insert : e +" " + index +" " + tail +" " + t +"\n" + this;
                 e = null;
             }
         }
