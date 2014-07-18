@@ -78,18 +78,26 @@ public class SimpleConcurrentArrayQueue<E> extends AbstractArrayQueue<E> {
             tail = getAndIncrementTail();
             int index = _index(tail);
             success = _insert(e, index);
+
+//            long attempts = 0;
+//            assert success: e +" " + _get(index) +" " + index + " "+tail +"\n"+this;
+//            if (attempts > 0) {
+//                if(success) successSetRepeat(attempts); else failSetRepeat(attempts);
+//            }
+
             if (!success) getAndDecrementTail();
 
-            //check inserting behind head
-            int curTail = this.tail.get();
-            if (success && delta(tail, curTail) > capacity()) {
-                assert false : "pizdec " + tail + "," + curTail + "\n" + this;
-            }
+//            //check inserting behind head
+//            int curTail = this.tail.get();
+//            if (success && delta(tail, curTail) > capacity()) {
+//                assert false : "pizdec " + tail + "," + curTail + "\n" + this;
+//            }
         }
 
         if (full || !success) this.amount.decrementAndGet();
 
         if (success) successSet();
+        else if (full) fullSet();
         else failSet();
 
         return success;
@@ -105,12 +113,31 @@ public class SimpleConcurrentArrayQueue<E> extends AbstractArrayQueue<E> {
 
         boolean full = amount > capacity() || (amount > tail && tail < capacity() && !tailOverflow);
 
+        if (empty) emptyGet();
+        if (full) fullGet();
+
         if (empty || full) return null;
+
+        boolean checkTailStealing = amount == capacity();
 
         int head = tail - amount;
         if (tailOverflow && head < 0) head = max_tail() + head + 1;
         int index = _index(head);
         E e = _retrieve(index);
+        if (e != null && checkTailStealing) {
+            //возможно взятие не из головы, а из хвоста
+            int t = this.tail.get();
+            //todo: assert не верный в случае переполнения счетчика хвоста
+            assert t >= tail : t + " " + tail + " " + e + "\n" + this;
+            //int delta = delta(tail, t);
+            if (tail != t) {
+                boolean insert = _insert(e, index);
+                tailStealing();
+                assert insert : e +" " + index +" " + tail +" " + t +"\n" + this;
+                e = null;
+            }
+        }
+
         if (e != null) this.amount.getAndDecrement();
 
         if (e != null) successGet();
@@ -200,7 +227,7 @@ public class SimpleConcurrentArrayQueue<E> extends AbstractArrayQueue<E> {
     protected final int delta(final int head, final int tail) {
         final long delta;
         if (tail >= head) delta = tail - head;
-        else delta = tail - 0 + max_tail() - head + 1;
+        else delta = tail + max_tail() - head + 1;
         return (int) delta;
     }
 
@@ -221,11 +248,37 @@ public class SimpleConcurrentArrayQueue<E> extends AbstractArrayQueue<E> {
 
     }
 
+    protected void fullGet() {
+
+    }
+
+    protected void emptyGet() {
+
+    }
+
     protected void failSet() {
+
+    }
+
+    protected void fullSet() {
 
     }
 
     protected void successSet() {
 
     }
+
+
+    protected void failSetRepeat(long attempts) {
+
+    }
+
+    protected void successSetRepeat(long attempts) {
+
+    }
+
+    protected void tailStealing() {
+
+    }
+
 }

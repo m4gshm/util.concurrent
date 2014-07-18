@@ -143,7 +143,7 @@ public abstract class BaseArrayQueueTest {
     @Test(priority = MULTI_THREADS)
     public void testInsertAnGetsInConcurrentMode5() {
         int inserts = 1;
-        int attemptsPerInsert = 1_000_000;
+        int attemptsPerInsert = 1000000;
         int capacity = 100;
         int getters = 1;
 

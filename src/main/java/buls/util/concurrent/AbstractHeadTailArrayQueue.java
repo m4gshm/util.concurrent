@@ -47,7 +47,7 @@ public abstract class AbstractHeadTailArrayQueue<E> extends AbstractArrayQueue<E
     protected final int delta(final long head, final long tail) {
         final long delta;
         if (tail >= head) delta = tail - head;
-        else delta = tail - 0 + max_tail() - head + 1;
+        else delta = tail + max_tail() - head + 1;
         return (int) delta;
     }
 
