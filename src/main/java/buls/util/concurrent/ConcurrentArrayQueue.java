@@ -6,7 +6,16 @@ import org.jetbrains.annotations.Nullable;
 import java.util.concurrent.atomic.AtomicLongArray;
 
 /**
- * Created by Bulgakov Alex on 31.05.2014.
+ * It is an attempt to implement a bounded queue without using "fat" and spin locks.
+ *
+ * An bounded thread-safe {@linkplain java.util.Queue queue} backed by an array.
+ * Consists from the array, a head counter, a tail counter and an auxiliary numeric array.
+ *
+ * Only atomic cas operations are used for the head and the tail counters.
+ * {@linkplain java.util.concurrent.atomic.AtomicLongArray Atomic long array}
+ * is used as the auxiliary array
+ *
+ * @author Bulgakov Alex
  */
 public class ConcurrentArrayQueue<E> extends AbstractHeadTailArrayQueue<E> {
 
@@ -17,7 +26,7 @@ public class ConcurrentArrayQueue<E> extends AbstractHeadTailArrayQueue<E> {
     AtomicLongArray levels;
 
     public ConcurrentArrayQueue(int capacity) {
-        this(capacity, false);
+        this(capacity, true);
     }
 
     public ConcurrentArrayQueue(int capacity, boolean checkInterruption) {
@@ -57,10 +66,7 @@ public class ConcurrentArrayQueue<E> extends AbstractHeadTailArrayQueue<E> {
     }
 
     private int failPutting(int index, long level) {
-        assert level <= 0 : level;
-
         final long current = _level(index);
-        assert current != 0 : current;
 
         if (current == PUTTING) return GO_NEXT;
         else if (current == POOLING || current == level) return TRY_AGAIN;
@@ -115,16 +121,14 @@ public class ConcurrentArrayQueue<E> extends AbstractHeadTailArrayQueue<E> {
             } finally {
                 finishPooling(currentHead, index);
             }
-            else if (stopTryPooling(index, level, currentHead))
+            else if (stopTryPooling(index, level))
                 return null;
         }
         return null;
     }
 
-    private boolean stopTryPooling(int index, long level, long currentHead) {
-        assert level > 0;
+    private boolean stopTryPooling(int index, long level) {
         final long current = _level(index);
-        //assert current != 0 : current + " " + level + " " + index + " " + currentHead + "\n" + this;
         return !(current == PUTTING || level == current);
     }
 

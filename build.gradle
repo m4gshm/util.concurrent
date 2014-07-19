@@ -42,3 +42,8 @@ dependencies {
     compile 'org.jetbrains:annotations:13.0'
     testCompile 'org.testng:testng:6.8.8'
 }
+
+javadoc {
+    exclude 'buls/util/concurrent/research/**'
+    exclude 'buls/util/concurrent/benchmark/**'
+}

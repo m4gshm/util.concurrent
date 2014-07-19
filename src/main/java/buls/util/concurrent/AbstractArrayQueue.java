@@ -19,7 +19,7 @@ public abstract class AbstractArrayQueue<E> extends AbstractQueue<E> {
     @NotNull
     @Override
     public String toString() {
-        return _stringLines();
+        return _string/*Lines*/();
     }
 
     @NotNull
