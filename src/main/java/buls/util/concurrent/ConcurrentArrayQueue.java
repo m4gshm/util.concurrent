@@ -26,7 +26,7 @@ public class ConcurrentArrayQueue<E> extends AbstractHeadTailArrayQueue<E> {
     AtomicLongArray levels;
 
     public ConcurrentArrayQueue(int capacity) {
-        this(capacity, true);
+        this(capacity, false);
     }
 
     public ConcurrentArrayQueue(int capacity, boolean checkInterruption) {
