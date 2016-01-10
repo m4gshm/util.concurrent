@@ -49,7 +49,7 @@ public class ConcurrentArrayQueue<E> extends AbstractHeadTailArrayQueue<E> {
     }
 
     /**
-     * @return SUCCESS, INTERRUPTED or result from failPutting
+     * @return SUCCESS, INTERRUPTED or result from onPuttingFail
      */
     @Override
     protected final int set(final E e, final long oldTail, final long insertingTail, long head) {
