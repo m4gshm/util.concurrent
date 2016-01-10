@@ -3,8 +3,6 @@ package buls.util.concurrent;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
-import java.util.AbstractQueue;
-import java.util.Iterator;
 import java.util.concurrent.atomic.AtomicLong;
 
 /**
@@ -22,13 +20,13 @@ public abstract class AbstractHeadTailArrayQueue<E> extends AbstractArrayQueue<E
 
     protected final AtomicLong tailSequence = new AtomicLong();
     protected final AtomicLong headSequence = new AtomicLong();
-    protected final boolean checkInterruption;
+    private final int MAX_SEQUENCE_VALUE;
 
-    private final int MAX_TAIL;
+    protected final boolean checkInterruption;
 
     protected AbstractHeadTailArrayQueue(int capacity, boolean checkInterruption) {
         super(capacity);
-        MAX_TAIL = capacity == 0 ? 0 : (MAX_VALUE - Integer.MAX_VALUE % capacity) - 1;
+        MAX_SEQUENCE_VALUE = capacity == 0 ? 0 : (MAX_VALUE - (MAX_VALUE % capacity)) - 1;
         this.checkInterruption = checkInterruption;
     }
 
@@ -40,14 +38,14 @@ public abstract class AbstractHeadTailArrayQueue<E> extends AbstractArrayQueue<E
         return "h: " + h + " (" + computeIndex(h) + ")"
                 + ", t: " + t + " (" + computeIndex(t) + ")"
                 + ", c:" + capacity()
-                + ", mT:" + max_tail()
+                + ", msv:" + max_sequence_value()
                 + "\n" + super.toString();
     }
 
     protected final int delta(final long head, final long tail) {
         final long delta;
         if (tail >= head) delta = tail - head;
-        else delta = tail + max_tail() - head + 1;
+        else delta = tail + max_sequence_value() - head + 1;
         return (int) delta;
     }
 
@@ -59,49 +57,70 @@ public abstract class AbstractHeadTailArrayQueue<E> extends AbstractArrayQueue<E
         return headSequence.get();
     }
 
+    /**
+     * set element to queue's end
+     * @param e element
+     * @param tail point to queue's end
+     * @param head
+     * @return true if element has been set
+     */
     protected boolean setElement(@NotNull final E e, final long tail, final long head) {
-        long currentTail = tail;
+        long insertingTail = tail;
         final int capacity = capacity();
 
         while (isNotInterrupted()) {
-            final int res = set(e, tail, currentTail, head);
+            final int res = set(e, tail, insertingTail, head);
             if (res == SUCCESS) {
                 successSet();
                 return true;
             } else {
                 failSet();
-                currentTail = computeTail(currentTail, res);
+                insertingTail = computeTail(insertingTail, res);
 
-                boolean overflow = checkTail(currentTail, capacity);
+                boolean overflow = checkTail(insertingTail, capacity);
                 if (overflow) return false;
             }
         }
         return false;
     }
 
-    protected abstract int set(E e, long tail, long currentTail, long head);
+    /**
+     * trying to set element in the end of this queue and increment the tail's counter
+     * @param e
+     * @param oldTail tail value for first insert
+     * @param insertingTail tail value for current insert
+     * @param head
+     * @return see childs
+     */
+    protected abstract int set(E e, long oldTail, long insertingTail, long head);
 
+    /**
+     * get a element from head of the queue
+     * @param head
+     * @param tail - not used
+     * @return element or null if failed or interrupted
+     */
     @Nullable
     protected E getElement(final long head, final long tail) {
-        long currentHead = head;
+        long readingHead = head;
         while (isNotInterrupted()) {
             E e;
-            if ((e = get(head, currentHead)) != null) {
+            if ((e = get(head, readingHead)) != null) {
                 successGet();
                 return e;
             } else {
                 failGet();
 
-                currentHead = computeHead(currentHead);
+                readingHead = computeNextHead(readingHead);
                 long t = getTail();
-                if (checkHead(currentHead, t)) return null;
+                if (checkHead(readingHead, t)) return null;
             }
         }
         return null;
     }
 
-    protected final int max_tail() {
-        return MAX_TAIL;
+    protected final int max_sequence_value() {
+        return MAX_SEQUENCE_VALUE;
     }
 
     @Override
@@ -144,30 +163,38 @@ public abstract class AbstractHeadTailArrayQueue<E> extends AbstractArrayQueue<E
         return notEmpty ? getElement(head, tail) : null;
     }
 
-    protected boolean setNextHead(long oldHead, long insertedHead) {
-        return next(oldHead, insertedHead, headSequence);
+    protected boolean incrementHead(long oldHead, long nextHead) {
+        return incrementSequence(oldHead, nextHead, headSequence);
     }
 
-    protected boolean setNextTail(long oldTail, long insertedTail) {
-        return next(oldTail, insertedTail, tailSequence);
+    protected boolean incrementTail(long oldTail, long insertedTail) {
+        return incrementSequence(oldTail, insertedTail, tailSequence);
     }
 
-    private boolean next(long oldVal, long insertedVal, @NotNull AtomicLong sequence) {
+    /**
+     * set next value in the tail or head sequence
+     * @param oldVal
+     * @param insertedVal
+     * @param sequence
+     * @return
+     */
+    private boolean incrementSequence(final long oldVal, final long insertedVal, final @NotNull AtomicLong sequence) {
         assert insertedVal >= 0;
-        assert insertedVal <= max_tail();
+        assert insertedVal <= max_sequence_value();
 
-        boolean ivOverflow = oldVal > insertedVal;
-        long newValue = _increment(insertedVal);
-        boolean nvOverflow = newValue == 0 && insertedVal == max_tail();
+        final boolean ivOverflow = oldVal > insertedVal;
+        final long newValue = _increment(insertedVal);
+        //if the inserted value is last
+        final boolean nvOverflow = newValue == 0 && insertedVal == max_sequence_value();
 
-        assert !(nvOverflow && ivOverflow) : oldVal + " " + newValue + " " + insertedVal + " " + max_tail();
+        assert !(nvOverflow && ivOverflow) : oldVal + " " + newValue + " " + insertedVal + " " + max_sequence_value();
 
         boolean set = cas(sequence, oldVal, newValue);
         while (!set) {
-            long currentValue = sequence.get();
+            final long currentValue = sequence.get();
 
             boolean tailRange = currentValue > oldVal
-                    && currentValue <= max_tail();
+                    && currentValue <= max_sequence_value();
             boolean headRange = currentValue < newValue;
 
             if (ivOverflow || nvOverflow) {
@@ -182,11 +209,11 @@ public abstract class AbstractHeadTailArrayQueue<E> extends AbstractArrayQueue<E
 
     private void assertRange(long oldVal, long insertedVal, long newValue, long currentValue, boolean tailRange, boolean headRange) {
         assert !(tailRange && headRange) : tailRange + " " + headRange + " "
-                + oldVal + " " + insertedVal + " " + newValue + " " + currentValue + " " + max_tail() + "\n" + this;
+                + oldVal + " " + insertedVal + " " + newValue + " " + currentValue + " " + max_sequence_value() + "\n" + this;
     }
 
     protected long _increment(long counter) {
-        return (counter == max_tail()) ? 0 : counter + 1;
+        return (counter == max_sequence_value()) ? 0 : counter + 1;
     }
 
     private boolean cas(@NotNull AtomicLong counter, long expected, long update) {
@@ -221,13 +248,16 @@ public abstract class AbstractHeadTailArrayQueue<E> extends AbstractArrayQueue<E
         return overflow;
     }
 
-    protected long computeHead(long head) {
-        long h = getHead();
+    protected long computeNextHead(long prevHead) {
+        long currentHead = getHead();
 
-        if (head < h) return h;
-        else return _increment(head);
+        if (prevHead < currentHead) return currentHead;
+        else return _increment(prevHead);
     }
 
+    /**
+     * get first element from this queue and increment head
+     */
     protected abstract E get(long head, long currentHead);
 
     protected void failGet() {
@@ -246,6 +276,11 @@ public abstract class AbstractHeadTailArrayQueue<E> extends AbstractArrayQueue<E
         return !(checkInterruption && Thread.interrupted());
     }
 
+    /**
+     * compute level for head or tail
+     * @param counter
+     * @return
+     */
     protected final long computeLevel(long counter) {
         return counter / capacity();
     }

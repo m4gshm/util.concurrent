@@ -79,7 +79,6 @@ public class ConcurrentArrayQueueWithLockByDemand<E> extends ConcurrentArrayQueu
     @Override
     protected E getElement(final long head, long tail) {
         long currentHead = head;
-        long currentTail = tail;
         long fails = 0;
         boolean hasLock = false;
         AtomicBoolean needLockFlag = this.needGetLock;
@@ -103,12 +102,11 @@ public class ConcurrentArrayQueueWithLockByDemand<E> extends ConcurrentArrayQueu
                     }
 
                     long t = getTail();
-                    currentHead = computeHead(currentHead);
+                    currentHead = computeNextHead(currentHead);
                     if (checkHead(currentHead, t)) {
                         return null;
                     }
                     assert delta(currentHead, t) > 0 : currentHead + " " + t + ", delta " + delta(currentHead, t);
-                    currentTail = t;
                 }
             }
         } finally {

@@ -21,7 +21,7 @@ public class ConcurrentArrayQueueTest extends BaseArrayQueueTest {
         queue.offer("B");
         queue.poll();
         queue.poll();
-        long tail = queue.max_tail() - queue.capacity() + 1;
+        long tail = queue.max_sequence_value() - queue.capacity() + 1;
         Assert.assertEquals(tail % queue.capacity(), 0);
 
         queue.tailSequence.set(tail);
@@ -85,7 +85,7 @@ public class ConcurrentArrayQueueTest extends BaseArrayQueueTest {
 
     protected void testOverflow(int capacity, int iterations) {
         ConcurrentArrayQueue<String> queue = createQueue(capacity, false);
-        int maxValue = queue.max_tail();
+        int maxValue = queue.max_sequence_value();
         long tail = maxValue - (maxValue % capacity);
         testOverflow(capacity, iterations, tail, queue);
     }
@@ -133,7 +133,7 @@ public class ConcurrentArrayQueueTest extends BaseArrayQueueTest {
         int getters = 2;
 
         final ConcurrentArrayQueue<String> queue = createQueue(capacity, WRITE_STATISTIC);
-        int maxValue = queue.max_tail();
+        int maxValue = queue.max_sequence_value();
         long tail = maxValue - (maxValue % capacity) - capacity;
 
         initQueueOverflow(queue, capacity, tail);
@@ -150,7 +150,7 @@ public class ConcurrentArrayQueueTest extends BaseArrayQueueTest {
         int getters = 2;
 
         final ConcurrentArrayQueue<String> queue = createQueue(capacity, WRITE_STATISTIC);
-        int maxValue = queue.max_tail();
+        int maxValue = queue.max_sequence_value();
         long tail = maxValue - (maxValue % capacity) - capacity;
 
         initQueueOverflow(queue, capacity, tail);

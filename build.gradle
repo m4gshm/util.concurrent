@@ -2,14 +2,16 @@ buildscript {
     repositories {
         jcenter()
         maven {
-            url 'http://typesafe.artifactoryonline.com/typesafe/repo/'
+            url "https://oss.sonatype.org/content/repositories/snapshots/"
         }
     }
     dependencies {
         classpath 'com.github.jengelman.gradle.plugins:shadow:0.8'
         classpath 'com.jimdo.gradle:gradle-apt-plugin:0.5-SNAPSHOT@jar'
+//        'com.jimdo.gradle:gradle-apt-plugin:{latest-version}'
     }
 }
+
 apply plugin: 'java'
 apply plugin: 'apt'
 apply plugin: 'shadow'
