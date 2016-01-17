@@ -26,7 +26,7 @@ public class ConcurrentArrayQueue<E> extends AbstractHeadTailArrayQueue<E> {
      * auxiliary array is used as a lock per this queue's cell
      */
     @NotNull
-    AtomicLongArray levels;
+    protected final AtomicLongArray levels;
 
     public ConcurrentArrayQueue(int capacity) {
         this(capacity, false);
